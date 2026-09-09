@@ -105,7 +105,6 @@ def obtener_cita_random():
     return "Intenta de nuevo."
 
 
-# Plantilla HTML con soporte completo para PWA
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="es">
@@ -114,10 +113,10 @@ HTML_TEMPLATE = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Prem Rawat</title>
     
-    <!-- Configuración PWA y Pantalla Completa para Celulares -->
     <link rel="manifest" href="/manifest.json">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Prem Rawat">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#121212">
 
@@ -239,18 +238,19 @@ def api_cita():
 def manifest():
     data = {
         "short_name": "Prem Rawat",
-        "name": "Prem Rawat - Citas",
-        "icons": [
-            {
-                "src": "https://cdn-icons-png.flaticon.com/512/3232/3232924.png",
-                "type": "image/png",
-                "sizes": "512x512",
-            }
-        ],
+        "name": "Prem Rawat",
         "start_url": "/",
         "background_color": "#121212",
         "theme_color": "#121212",
         "display": "standalone",
+        "icons": [
+            {
+                "src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%231e1e1e'/><text x='50%' y='60%' dominant-baseline='middle' text-anchor='middle' font-size='280' fill='%232563eb'>PR</text></svg>",
+                "sizes": "512x512",
+                "type": "image/svg+xml",
+                "purpose": "any maskable",
+            }
+        ],
     }
     return Response(json.dumps(data), mimetype="application/json")
 
