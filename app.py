@@ -2,6 +2,7 @@ import io
 import json
 import os
 import random
+import textwrap
 import urllib.parse
 import urllib.request
 from fastapi import FastAPI
@@ -43,15 +44,17 @@ CITAS_MEMORIA = [
         "La serenidad no es ausencia de ruido, es presencia de claridad interior.",
         "Prem Rawat",
     ),
+    (
+        "Cada día, puedes aprender; cada día, puedes crecer; cada día, puedes entender.",
+        "Prem Rawat",
+    )
 ]
 
-# Estado en memoria para almacenar la combinación actual
 STATE = {"current_image": None, "current_quote": None, "current_author": None}
 
 # ============================================================
-# DESCARGA DE IMÁGENES DESDE SERVIDORES
+# DESCARGA DE IMÁGENES
 # ============================================================
-
 
 def get_image_bytes(url):
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
@@ -66,7 +69,7 @@ def get_wallhaven_wallpaper():
             "q": tag,
             "apikey": WALLHAVEN_API_KEY,
             "sorting": "random",
-            "purity": "100",  # SFW
+            "purity": "100",
             "ratios": "16x9,16x10",
         }
     )
@@ -90,7 +93,6 @@ def get_bing_wallpaper():
 
 
 def fetch_random_background():
-    """Descarga de Wallhaven o Bing (o genera un fondo sólido si falla la red)."""
     providers = [get_wallhaven_wallpaper, get_bing_wallpaper]
     random.shuffle(providers)
 
@@ -102,7 +104,6 @@ def fetch_random_background():
         except Exception:
             continue
 
-    # Fallback si no hay internet
     return Image.new("RGB", (WIDTH, HEIGHT), color=(40, 50, 60))
 
 
@@ -111,64 +112,104 @@ def get_new_quote():
 
 
 # ============================================================
-# COMPOSICIÓN DE LA IMAGEN CON PILLOW
+# COMPOSICIÓN DE LA IMAGEN (ESTILO VARIETY / CAIRO)
 # ============================================================
+
+def wrap_text(text, font, max_width, draw):
+    """Divide el texto automáticamente para que quepa en el ancho definido."""
+    words = text.split()
+    lines = []
+    current_line = []
+    
+    for word in words:
+        test_line = " ".join(current_line + [word])
+        bbox = draw.textbbox((0, 0), test_line, font=font)
+        w = bbox[2] - bbox[0]
+        if w <= max_width:
+            current_line.append(word)
+        else:
+            if current_line:
+                lines.append(" ".join(current_line))
+            current_line = [word]
+    if current_line:
+        lines.append(" ".join(current_line))
+    return lines
 
 
 def generate_composite_image(bg_image, quote_text, author_text):
-    # Obtener el color promedio del fondo
+    # 1. Color representativo de la imagen
     small_img = bg_image.resize((1, 1))
     avg_color = small_img.getpixel((0, 0))
 
     overlay = Image.new("RGBA", bg_image.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
+    draw_overlay = ImageDraw.Draw(overlay)
 
-    box_w, box_h = int(WIDTH * 0.65), int(HEIGHT * 0.35)
+    # 2. Cargar fuentes locales con fallback
+    try:
+        font_quote = ImageFont.truetype("DejaVuSerif.ttf", 38)
+        font_author = ImageFont.truetype("DejaVuSerif-Italic.ttf", 28)
+    except OSError:
+        try:
+            font_quote = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf", 38)
+            font_author = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Italic.ttf", 28)
+        except OSError:
+            font_quote = ImageFont.load_default()
+            font_author = ImageFont.load_default()
+
+    # 3. Dimensiones y envoltura de texto
+    box_w = int(WIDTH * 0.70)
+    margin = 40
+    max_text_w = box_w - (margin * 2)
+
+    wrapped_lines = wrap_text(f'"{quote_text}"', font_quote, max_text_w, draw_overlay)
+    
+    # Cálculo de alturas
+    line_bbox = font_quote.getbbox("A")
+    line_height = (line_bbox[3] - line_bbox[1]) + 14
+    quote_height = len(wrapped_lines) * line_height
+    
+    author_height = 0
+    if author_text:
+        a_bbox = font_author.getbbox("A")
+        author_height = (a_bbox[3] - a_bbox[1]) + 20
+    
+    box_h = quote_height + author_height + (margin * 2)
     box_x = (WIDTH - box_w) // 2
     box_y = (HEIGHT - box_h) // 2
 
+    # 4. Dibujar recuadro de fondo (opacidad 55%)
     r, g, b = avg_color
-    draw.rectangle(
-        [box_x, box_y, box_x + box_w, box_y + box_h], fill=(r, g, b, 170)
+    draw_overlay.rectangle(
+        [box_x, box_y, box_x + box_w, box_y + box_h], fill=(r, g, b, 140)
     )
 
     bg_composite = Image.alpha_composite(bg_image.convert("RGBA"), overlay)
     draw_final = ImageDraw.Draw(bg_composite)
 
-    try:
-        font_quote = ImageFont.truetype(
-            "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf", 36
-        )
-        font_author = ImageFont.truetype(
-            "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Italic.ttf", 28
-        )
-    except OSError:
-        font_quote = ImageFont.load_default()
-        font_author = ImageFont.load_default()
+    # 5. Renderizar Texto de Cita con Sombra
+    current_y = box_y + margin
+    for line in wrapped_lines:
+        # Sombra
+        draw_final.text((box_x + margin + 2, current_y + 2), line, fill=(0, 0, 0, 160), font=font_quote)
+        # Texto principal
+        draw_final.text((box_x + margin, current_y), line, fill="white", font=font_quote)
+        current_y += line_height
 
-    draw_final.text(
-        (WIDTH // 2, box_y + (box_h // 2) - 20),
-        f'"{quote_text}"',
-        fill="white",
-        font=font_quote,
-        anchor="mm",
-    )
+    # 6. Renderizar Firma del Autor
     if author_text:
-        draw_final.text(
-            (box_x + box_w - 50, box_y + box_h - 45),
-            f"— {author_text}",
-            fill="white",
-            font=font_author,
-            anchor="rm",
-        )
+        author_str = f"— {author_text}"
+        current_y += 10
+        # Sombra
+        draw_final.text((box_x + margin + 2, current_y + 2), author_str, fill=(0, 0, 0, 160), font=font_author)
+        # Texto principal
+        draw_final.text((box_x + margin, current_y), author_str, fill="white", font=font_author)
 
     return bg_composite
 
 
 # ============================================================
-# ENDPOINTS (RUTAS PARA LOS BOTONES)
+# ENDPOINTS
 # ============================================================
-
 
 @app.get("/render-image")
 def render_image():
@@ -185,7 +226,7 @@ def render_image():
     )
 
     buf = io.BytesIO()
-    composite.convert("RGB").save(buf, format="JPEG", quality=90)
+    composite.convert("RGB").save(buf, format="JPEG", quality=95)
     buf.seek(0)
     return StreamingResponse(buf, media_type="image/jpeg")
 
@@ -222,9 +263,8 @@ def download_wallpaper():
 
 
 # ============================================================
-# VISTA INTERACTIVA WEB (HTML/CSS/JS)
+# VISTA INTERACTIVA WEB
 # ============================================================
-
 
 @app.get("/", response_class=HTMLResponse)
 def index():
@@ -353,3 +393,8 @@ def index():
     </body>
     </html>
     """
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("app:app", host="0.0.0.0", port=port, reload=False)
