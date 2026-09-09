@@ -3,7 +3,7 @@ import random
 import re
 from html import unescape
 from urllib.request import Request, urlopen
-from flask import Flask, render_template_string, jsonify
+from flask import Flask, render_template_string, jsonify, Response
 
 app = Flask(__name__)
 
@@ -105,16 +105,17 @@ def obtener_cita_random():
     return "Intenta de nuevo."
 
 
-# Plantilla HTML/CSS/JS con diseño PWA App
+# Plantilla HTML con soporte completo para PWA
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Prem Rawat - Citas</title>
+    <title>Prem Rawat</title>
     
-    <!-- Configuración para App Nativa Móvil -->
+    <!-- Configuración PWA y Pantalla Completa para Celulares -->
+    <link rel="manifest" href="/manifest.json">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -217,22 +218,41 @@ HTML_TEMPLATE = """
             }
         }
 
-        // Cargar cita inicial automáticamente al abrir
         window.onload = cargarCita;
     </script>
 </body>
 </html>
 """
 
-# Ruta que entrega la vista web principal
+
 @app.route("/")
 def index():
     return render_template_string(HTML_TEMPLATE)
 
-# Ruta API que devuelve solo la cita en formato JSON
+
 @app.route("/api/cita")
 def api_cita():
     return jsonify({"cita": obtener_cita_random()})
+
+
+@app.route("/manifest.json")
+def manifest():
+    data = {
+        "short_name": "Prem Rawat",
+        "name": "Prem Rawat - Citas",
+        "icons": [
+            {
+                "src": "https://cdn-icons-png.flaticon.com/512/3232/3232924.png",
+                "type": "image/png",
+                "sizes": "512x512",
+            }
+        ],
+        "start_url": "/",
+        "background_color": "#121212",
+        "theme_color": "#121212",
+        "display": "standalone",
+    }
+    return Response(json.dumps(data), mimetype="application/json")
 
 
 if __name__ == "__main__":
