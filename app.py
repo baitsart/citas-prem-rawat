@@ -6,7 +6,7 @@ import urllib.parse
 import urllib.request
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -18,8 +18,7 @@ app = FastAPI(title="Generador de Citas y Wallpapers")
 # CONFIGURACIÓN GENERAL
 # ============================================================
 
-WIDTH = 1920
-HEIGHT = 1080
+BASE_SIZE = 1920
 
 WALLHAVEN_API_KEY = os.environ.get(
     "WALLHAVEN_API_KEY",
@@ -42,10 +41,68 @@ USER_AGENT = (
 
 
 # ============================================================
-# PARÁMETROS IGUALES A cita-variety.py
+# PROPORCIONES DISPONIBLES
+#
+# El lado mayor siempre será 1920 px.
+#
+# 1:1    -> 1920 x 1920
+# 2:3    -> 1280 x 1920
+# 3:2    -> 1920 x 1280
+# 3:4    -> 1440 x 1920
+# 4:5    -> 1536 x 1920
+# 5:3    -> 1920 x 1152
+# 16:9   -> 1920 x 1080
+# 9:16   -> 1080 x 1920
 # ============================================================
 
-FONT_SIZE = 30
+ASPECT_RATIOS = [
+    (1, 1),
+    (2, 3),
+    (3, 2),
+    (3, 4),
+    (4, 5),
+    (5, 3),
+    (16, 9),
+    (9, 16),
+]
+
+
+def get_random_dimensions():
+
+    ratio_w, ratio_h = random.choice(
+        ASPECT_RATIOS
+    )
+
+    if ratio_w >= ratio_h:
+
+        width = BASE_SIZE
+
+        height = int(
+            BASE_SIZE
+            * ratio_h
+            / ratio_w
+        )
+
+    else:
+
+        height = BASE_SIZE
+
+        width = int(
+            BASE_SIZE
+            * ratio_w
+            / ratio_h
+        )
+
+    return width, height
+
+
+# ============================================================
+# PARÁMETROS DE COMPOSICIÓN
+#
+# Basados en cita-variety.py
+# ============================================================
+
+FONT_SIZE = 42
 
 BG_OPACITY = 55
 
@@ -98,22 +155,16 @@ STATE = {
     "current_image": None,
     "current_quote": None,
     "current_author": None,
+    "current_width": None,
+    "current_height": None,
 }
 
 
 # ============================================================
-# FUENTES
+# FUENTE
 # ============================================================
 
 def get_quote_font():
-    """
-    Equivalente aproximado a:
-
-        Pango.FontDescription("Serif 30")
-
-    Se intenta primero DejaVu Serif, que está disponible
-    habitualmente en los servidores Linux.
-    """
 
     candidates = [
         "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
@@ -123,28 +174,39 @@ def get_quote_font():
     ]
 
     for filename in candidates:
+
         try:
+
             return ImageFont.truetype(
                 filename,
                 FONT_SIZE
             )
+
         except OSError:
+
             continue
 
     return ImageFont.load_default()
 
 
 # ============================================================
-# DESCARGA DE IMÁGENES
+# DESCARGAR BYTES
 # ============================================================
 
 def get_image_bytes(url):
+
     req = urllib.request.Request(
         url,
-        headers={"User-Agent": USER_AGENT}
+        headers={
+            "User-Agent": USER_AGENT
+        }
     )
 
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    with urllib.request.urlopen(
+        req,
+        timeout=15
+    ) as resp:
+
         return resp.read()
 
 
@@ -154,7 +216,9 @@ def get_image_bytes(url):
 
 def get_wallhaven_wallpaper():
 
-    tag = random.choice(WALLHAVEN_TAGS)
+    tag = random.choice(
+        WALLHAVEN_TAGS
+    )
 
     query = urllib.parse.urlencode(
         {
@@ -162,7 +226,6 @@ def get_wallhaven_wallpaper():
             "apikey": WALLHAVEN_API_KEY,
             "sorting": "random",
             "purity": "100",
-            "ratios": "16x9,16x10",
         }
     )
 
@@ -173,16 +236,24 @@ def get_wallhaven_wallpaper():
 
     req = urllib.request.Request(
         api_url,
-        headers={"User-Agent": USER_AGENT}
+        headers={
+            "User-Agent": USER_AGENT
+        }
     )
 
-    with urllib.request.urlopen(req, timeout=10) as resp:
+    with urllib.request.urlopen(
+        req,
+        timeout=10
+    ) as resp:
 
         data = json.loads(
             resp.read().decode("utf-8")
         )
 
-        results = data.get("data", [])
+        results = data.get(
+            "data",
+            []
+        )
 
         if results:
 
@@ -212,10 +283,15 @@ def get_bing_wallpaper():
 
     req = urllib.request.Request(
         url,
-        headers={"User-Agent": USER_AGENT}
+        headers={
+            "User-Agent": USER_AGENT
+        }
     )
 
-    with urllib.request.urlopen(req, timeout=10) as resp:
+    with urllib.request.urlopen(
+        req,
+        timeout=10
+    ) as resp:
 
         data = json.loads(
             resp.read().decode("utf-8")
@@ -226,72 +302,98 @@ def get_bing_wallpaper():
             + data["images"][0]["url"]
         )
 
-        return get_image_bytes(img_url)
+        return get_image_bytes(
+            img_url
+        )
 
 
 # ============================================================
-# AJUSTAR WALLPAPER AL FORMATO 1920×1080
+# RECORTE PROPORCIONAL
 #
-# Igual que Variety:
+# NO deforma la imagen.
 #
-# - conserva proporción
-# - cubre toda la pantalla
-# - recorta el sobrante
-# - NO deforma la imagen
+# La imagen se amplía hasta cubrir completamente
+# el formato elegido y luego se recorta el sobrante.
 # ============================================================
 
-def fit_wallpaper(image):
+def fit_wallpaper(
+    image,
+    target_width,
+    target_height
+):
 
-    image = image.convert("RGB")
+    image = image.convert(
+        "RGB"
+    )
 
     iw, ih = image.size
 
-    image_ratio = iw / ih
-    screen_ratio = WIDTH / HEIGHT
+    source_ratio = iw / ih
+    target_ratio = (
+        target_width
+        / target_height
+    )
 
-    if image_ratio > screen_ratio:
+    # --------------------------------------------------------
+    # Imagen demasiado ancha
+    # --------------------------------------------------------
 
-        # Imagen más ancha:
-        # ajustamos la altura y recortamos horizontalmente.
+    if source_ratio > target_ratio:
 
-        new_height = HEIGHT
+        new_height = target_height
 
         new_width = int(
-            HEIGHT * image_ratio
+            target_height
+            * source_ratio
         )
+
+    # --------------------------------------------------------
+    # Imagen demasiado alta
+    # --------------------------------------------------------
 
     else:
 
-        # Imagen más alta:
-        # ajustamos la anchura y recortamos verticalmente.
-
-        new_width = WIDTH
+        new_width = target_width
 
         new_height = int(
-            WIDTH / image_ratio
+            target_width
+            / source_ratio
         )
 
     image = image.resize(
-        (new_width, new_height),
+        (
+            new_width,
+            new_height
+        ),
         Image.Resampling.LANCZOS
     )
 
+    # --------------------------------------------------------
+    # Recorte centrado
+    # --------------------------------------------------------
+
     left = max(
         0,
-        (new_width - WIDTH) // 2
+        (
+            new_width
+            - target_width
+        ) // 2
     )
 
     top = max(
         0,
-        (new_height - HEIGHT) // 2
+        (
+            new_height
+            - target_height
+        ) // 2
     )
 
     image = image.crop(
         (
             left,
             top,
-            left + WIDTH,
-            top + HEIGHT
+            left + target_width,
+            top + target_height
         )
     )
 
@@ -304,12 +406,18 @@ def fit_wallpaper(image):
 
 def fetch_random_background():
 
+    target_width, target_height = (
+        get_random_dimensions()
+    )
+
     providers = [
         get_wallhaven_wallpaper,
-        get_bing_wallpaper
+        get_bing_wallpaper,
     ]
 
-    random.shuffle(providers)
+    random.shuffle(
+        providers
+    )
 
     for provider in providers:
 
@@ -321,15 +429,39 @@ def fetch_random_background():
                 io.BytesIO(img_data)
             ).convert("RGB")
 
-            return fit_wallpaper(img)
+            img = fit_wallpaper(
+                img,
+                target_width,
+                target_height
+            )
+
+            return (
+                img,
+                target_width,
+                target_height
+            )
 
         except Exception:
+
             continue
 
-    return Image.new(
+    # --------------------------------------------------------
+    # Fondo de emergencia
+    # --------------------------------------------------------
+
+    img = Image.new(
         "RGB",
-        (WIDTH, HEIGHT),
+        (
+            target_width,
+            target_height
+        ),
         color=(40, 50, 60)
+    )
+
+    return (
+        img,
+        target_width,
+        target_height
     )
 
 
@@ -347,21 +479,14 @@ def get_new_quote():
 # ============================================================
 # COLOR REPRESENTATIVO
 #
-# Equivalente a:
+# Equivalente al método utilizado en Variety:
 #
-# GdkPixbuf.Pixbuf.new_from_file_at_scale(
-#     filename,
-#     1,
-#     1,
-#     True
-# )
-#
-# En PIL:
-#
-# image.resize((1,1))
+# imagen -> 1x1 -> RGB
 # ============================================================
 
-def get_image_representative_color(image):
+def get_image_representative_color(
+    image
+):
 
     small_img = image.resize(
         (1, 1),
@@ -377,7 +502,11 @@ def get_image_representative_color(image):
 # MEDICIÓN DE TEXTO
 # ============================================================
 
-def text_width(draw, text, font):
+def text_width(
+    draw,
+    text,
+    font
+):
 
     bbox = draw.textbbox(
         (0, 0),
@@ -385,10 +514,17 @@ def text_width(draw, text, font):
         font=font
     )
 
-    return bbox[2] - bbox[0]
+    return (
+        bbox[2]
+        - bbox[0]
+    )
 
 
-def text_height(draw, text, font):
+def text_height(
+    draw,
+    text,
+    font
+):
 
     bbox = draw.textbbox(
         (0, 0),
@@ -396,17 +532,16 @@ def text_height(draw, text, font):
         font=font
     )
 
-    return bbox[3] - bbox[1]
+    return (
+        bbox[3]
+        - bbox[1]
+    )
 
 
 # ============================================================
-# WRAP
+# WRAP DE TEXTO
 #
-# Equivalente al:
-#
-# Pango.WrapMode.WORD
-#
-# con ancho máximo definido por QUOTES_WIDTH.
+# Equivalente a Pango.WrapMode.WORD
 # ============================================================
 
 def wrap_text(
@@ -447,68 +582,67 @@ def wrap_text(
         else:
 
             if current:
-                lines.append(current)
+
+                lines.append(
+                    current
+                )
 
             current = word
 
     if current:
-        lines.append(current)
+
+        lines.append(
+            current
+        )
 
     return lines
 
 
 # ============================================================
-# CREAR LAYOUT DE CITA
-#
-# Esta parte reproduce la lógica de:
-#
-# qlayout = make_layout(...)
-# qwidth, qheight = qlayout.get_pixel_size()
-#
-# width = qwidth + 4*MARGIN
+# PREPARAR LAYOUT
 # ============================================================
 
 def prepare_quote_layout(
     quote,
-    author
+    author,
+    canvas_width,
+    canvas_height
 ):
 
     font = get_quote_font()
 
     dummy = Image.new(
         "RGB",
-        (WIDTH, HEIGHT)
+        (
+            canvas_width,
+            canvas_height
+        )
     )
 
-    draw = ImageDraw.Draw(dummy)
+    draw = ImageDraw.Draw(
+        dummy
+    )
 
     # --------------------------------------------------------
-    # Ancho inicial de Pango
+    # Igual que:
     #
     # sw * QUOTES_WIDTH / 100
     # --------------------------------------------------------
 
     initial_width = max(
         200,
-        WIDTH * QUOTES_WIDTH // 100
+        canvas_width
+        * QUOTES_WIDTH
+        // 100
     )
 
-    # El layout recibe:
-    #
-    # width - 4*MARGIN
-    #
     max_text_width = (
         initial_width
         - 4 * MARGIN
     )
 
     # --------------------------------------------------------
-    # IMPORTANTE:
-    #
-    # No agregamos comillas aquí.
-    #
-    # cita-variety.py tampoco las agrega.
-    # Si la fuente de la cita las trae, se conservan.
+    # CITA
     # --------------------------------------------------------
 
     wrapped_lines = wrap_text(
@@ -517,12 +651,6 @@ def prepare_quote_layout(
         max_text_width,
         draw
     )
-
-    # --------------------------------------------------------
-    # Medir ancho real de la cita
-    #
-    # Pango get_pixel_size() devuelve el ancho real ocupado.
-    # --------------------------------------------------------
 
     if wrapped_lines:
 
@@ -540,31 +668,29 @@ def prepare_quote_layout(
         qwidth = 0
 
     # --------------------------------------------------------
-    # Altura de líneas
-    #
-    # Se aproxima al espaciado natural de Pango.
+    # Altura de línea
     # --------------------------------------------------------
 
-    sample_bbox = draw.textbbox(
+    bbox = draw.textbbox(
         (0, 0),
         "Ag",
         font=font
     )
 
     line_height = (
-        sample_bbox[3]
-        - sample_bbox[1]
+        bbox[3]
+        - bbox[1]
     )
 
-    # Un pequeño espaciado entre líneas.
-    line_spacing = 4
+    line_spacing = 5
 
     if wrapped_lines:
 
         qheight = (
             len(wrapped_lines)
             * line_height
-            + max(
+            +
+            max(
                 0,
                 len(wrapped_lines) - 1
             )
@@ -590,16 +716,10 @@ def prepare_quote_layout(
 
     else:
 
-        box_width = WIDTH
+        box_width = canvas_width
 
     # --------------------------------------------------------
     # FIRMA
-    #
-    # En Variety:
-    #
-    # author_layout:
-    # width - 4*MARGIN
-    # alignment RIGHT
     # --------------------------------------------------------
 
     author_lines = []
@@ -616,31 +736,33 @@ def prepare_quote_layout(
         author_lines = wrap_text(
             author_text,
             font,
-            box_width - 4 * MARGIN,
+            box_width
+            - 4 * MARGIN,
             draw
         )
 
         if author_lines:
 
-            author_line_height = (
-                line_height
-            )
-
             aheight = (
                 len(author_lines)
-                * author_line_height
+                * line_height
             )
 
     # --------------------------------------------------------
-    # Igual que:
+    # Igual que Variety:
     #
-    # height = qheight + aheight + int(2.5*MARGIN)
+    # height =
+    #     qheight
+    #     + aheight
+    #     + 2.5*MARGIN
     # --------------------------------------------------------
 
     box_height = (
         qheight
         + aheight
-        + int(2.5 * MARGIN)
+        + int(
+            2.5 * MARGIN
+        )
     )
 
     return (
@@ -658,9 +780,7 @@ def prepare_quote_layout(
 
 
 # ============================================================
-# COMPOSICIÓN PRINCIPAL
-#
-# ESTA ES LA PARTE QUE REPRODUCE cita-variety.py
+# GENERAR IMAGEN COMPUESTA
 # ============================================================
 
 def generate_composite_image(
@@ -669,24 +789,29 @@ def generate_composite_image(
     author_text
 ):
 
+    canvas_width = bg_image.width
+    canvas_height = bg_image.height
+
     # ========================================================
-    # 1. COLOR REPRESENTATIVO
+    # COLOR
     # ========================================================
 
-    bg_color = get_image_representative_color(
-        bg_image
+    bg_color = (
+        get_image_representative_color(
+            bg_image
+        )
     )
 
     r, g, b = bg_color
 
     print(
-        "INFO: Color representativo DE LA IMAGEN: "
+        "INFO: Color representativo: "
         f"RGB {r}, {g}, {b}"
     )
 
 
     # ========================================================
-    # 2. PREPARAR LAYOUT
+    # LAYOUT
     # ========================================================
 
     (
@@ -702,45 +827,60 @@ def generate_composite_image(
         line_spacing,
     ) = prepare_quote_layout(
         quote_text,
-        author_text
+        author_text,
+        canvas_width,
+        canvas_height
     )
 
 
     # ========================================================
-    # 3. POSICIÓN
+    # POSICIÓN HORIZONTAL
     #
-    # Equivalente exacto a:
+    # Variety:
     #
-    # hpos = trimw + (sw-width) * HPos / 100
+    # hpos =
+    # trimw
+    # +
+    # (sw-width) * HPos / 100
     #
-    # vpos = trimh + (sh-height) * VPos / 100
-    #
-    # Como aquí ya hicimos el crop de la imagen a 1920×1080:
-    #
-    # trimw = 0
-    # trimh = 0
+    # Aquí la imagen ya está recortada,
+    # por lo que trimw = 0.
     # ========================================================
 
-    hpos = (
-        (WIDTH - box_width)
+    hpos = int(
+        (
+            canvas_width
+            - box_width
+        )
         * QUOTES_HPOS
-        // 100
-    )
-
-    vpos = (
-        (HEIGHT - box_height)
-        * QUOTES_VPOS
-        // 100
+        / 100
     )
 
 
     # ========================================================
-    # 4. CAPA TRANSPARENTE
+    # POSICIÓN VERTICAL
+    # ========================================================
+
+    vpos = int(
+        (
+            canvas_height
+            - box_height
+        )
+        * QUOTES_VPOS
+        / 100
+    )
+
+
+    # ========================================================
+    # CAPA DEL RECUADRO
     # ========================================================
 
     overlay = Image.new(
         "RGBA",
-        (WIDTH, HEIGHT),
+        (
+            canvas_width,
+            canvas_height
+        ),
         (0, 0, 0, 0)
     )
 
@@ -750,16 +890,7 @@ def generate_composite_image(
 
 
     # ========================================================
-    # 5. FONDO DEL RECUADRO
-    #
-    # Variety:
-    #
-    # context.set_source_rgba(
-    #     r/255,
-    #     g/255,
-    #     b/255,
-    #     BG_OPACITY/100
-    # )
+    # OPACIDAD
     # ========================================================
 
     alpha = int(
@@ -767,6 +898,11 @@ def generate_composite_image(
         * BG_OPACITY
         / 100
     )
+
+
+    # ========================================================
+    # RECUADRO
+    # ========================================================
 
     draw_overlay.rectangle(
         [
@@ -785,7 +921,7 @@ def generate_composite_image(
 
 
     # ========================================================
-    # 6. UNIR FONDO + RECUADRO
+    # COMPONER
     # ========================================================
 
     result = Image.alpha_composite(
@@ -799,19 +935,20 @@ def generate_composite_image(
 
 
     # ========================================================
-    # 7. POSICIÓN DEL TEXTO
+    # TEXTO
     #
-    # Variety:
+    # Igual que Variety:
     #
     # hpos + (width-qwidth)/2
-    #
-    # Esto deja el texto centrado dentro del recuadro,
-    # aunque el layout de la cita sea LEFT.
     # ========================================================
 
     text_x = (
         hpos
-        + (box_width - qwidth) / 2
+        + (
+            box_width
+            - qwidth
+        )
+        / 2
     )
 
     text_y = (
@@ -821,29 +958,21 @@ def generate_composite_image(
 
 
     # ========================================================
-    # 8. CITA
+    # CITA
     # ========================================================
 
     for line in wrapped_lines:
 
         # ----------------------------------------------------
         # Sombra
-        #
-        # Variety:
-        #
-        # negro alpha 0.2
-        # luego translate(-2,-2)
-        #
-        # Aquí se reproduce visualmente como desplazamiento
-        # de 2 px.
         # ----------------------------------------------------
 
         if TEXT_SHADOW:
 
             draw.text(
                 (
-                    text_x + 2,
-                    text_y + 2
+                    int(text_x + 2),
+                    int(text_y + 2)
                 ),
                 line,
                 font=font,
@@ -856,13 +985,13 @@ def generate_composite_image(
             )
 
         # ----------------------------------------------------
-        # Texto blanco
+        # Texto
         # ----------------------------------------------------
 
         draw.text(
             (
-                text_x,
-                text_y
+                int(text_x),
+                int(text_y)
             ),
             line,
             font=font,
@@ -881,16 +1010,9 @@ def generate_composite_image(
 
 
     # ========================================================
-    # 9. FIRMA
+    # FIRMA
     #
-    # Variety:
-    #
-    # translate(
-    #     hpos + (width-qwidth)/2,
-    #     vpos + MARGIN + qheight + MARGIN/2
-    # )
-    #
-    # Y el layout está alineado a la DERECHA.
+    # A LA DERECHA
     # ========================================================
 
     if author_lines:
@@ -902,16 +1024,18 @@ def generate_composite_image(
             + MARGIN / 2
         )
 
-        # El ancho del layout de autor:
         author_layout_width = (
             box_width
             - 4 * MARGIN
         )
 
-        # El inicio del layout.
         author_x = (
             hpos
-            + (box_width - qwidth) / 2
+            + (
+                box_width
+                - qwidth
+            )
+            / 2
         )
 
         for author_line in author_lines:
@@ -922,19 +1046,28 @@ def generate_composite_image(
                 font
             )
 
-            # Pango.Alignment.RIGHT
             author_draw_x = (
                 author_x
                 + author_layout_width
                 - author_w
             )
 
+            # ------------------------------------------------
+            # Sombra
+            # ------------------------------------------------
+
             if TEXT_SHADOW:
 
                 draw.text(
                     (
-                        author_draw_x + 2,
-                        author_y + 2
+                        int(
+                            author_draw_x
+                            + 2
+                        ),
+                        int(
+                            author_y
+                            + 2
+                        )
                     ),
                     author_line,
                     font=font,
@@ -946,10 +1079,18 @@ def generate_composite_image(
                     )
                 )
 
+            # ------------------------------------------------
+            # Firma
+            # ------------------------------------------------
+
             draw.text(
                 (
-                    author_draw_x,
-                    author_y
+                    int(
+                        author_draw_x
+                    ),
+                    int(
+                        author_y
+                    )
                 ),
                 author_line,
                 font=font,
@@ -964,25 +1105,26 @@ def generate_composite_image(
             author_y += line_height
 
 
-    # ========================================================
-    # 10. DEVOLVER
-    # ========================================================
-
     return result
 
 
 # ============================================================
-# ENDPOINT: RENDER IMAGE
+# ASEGURAR ESTADO
 # ============================================================
 
-@app.get("/render-image")
-def render_image():
+def ensure_state():
 
     if STATE["current_image"] is None:
 
-        STATE["current_image"] = (
-            fetch_random_background()
-        )
+        (
+            image,
+            width,
+            height
+        ) = fetch_random_background()
+
+        STATE["current_image"] = image
+        STATE["current_width"] = width
+        STATE["current_height"] = height
 
     if STATE["current_quote"] is None:
 
@@ -992,16 +1134,26 @@ def render_image():
         STATE["current_author"] = a
 
 
+# ============================================================
+# RENDER IMAGE
+# ============================================================
+
+@app.get("/render-image")
+def render_image():
+
+    ensure_state()
+
     composite = generate_composite_image(
         STATE["current_image"],
         STATE["current_quote"],
         STATE["current_author"],
     )
 
-
     buf = io.BytesIO()
 
-    composite.convert("RGB").save(
+    composite.convert(
+        "RGB"
+    ).save(
         buf,
         format="JPEG",
         quality=95
@@ -1011,22 +1163,62 @@ def render_image():
 
     return StreamingResponse(
         buf,
-        media_type="image/jpeg"
+        media_type="image/jpeg",
+        headers={
+            "Cache-Control": "no-store"
+        }
     )
 
 
 # ============================================================
-# ENDPOINT: ACCIONES
+# INFORMACIÓN DE LA CITA
+#
+# Usada por el botón "Copiar la cita".
+# ============================================================
+
+@app.get("/quote")
+def get_quote():
+
+    ensure_state()
+
+    text = STATE["current_quote"]
+
+    author = STATE["current_author"]
+
+    full_text = (
+        f"“{text}”\n"
+        f"— {author}"
+    )
+
+    return JSONResponse(
+        {
+            "quote": text,
+            "author": author,
+            "text": full_text,
+        }
+    )
+
+
+# ============================================================
+# CAMBIAR IMAGEN / CITA / AMBAS
 # ============================================================
 
 @app.get("/action/{action_type}")
-def handle_action(action_type: str):
+def handle_action(
+    action_type: str
+):
 
     if action_type == "change_image":
 
-        STATE["current_image"] = (
-            fetch_random_background()
-        )
+        (
+            image,
+            width,
+            height
+        ) = fetch_random_background()
+
+        STATE["current_image"] = image
+        STATE["current_width"] = width
+        STATE["current_height"] = height
 
     elif action_type == "change_quote":
 
@@ -1037,9 +1229,15 @@ def handle_action(action_type: str):
 
     elif action_type == "change_both":
 
-        STATE["current_image"] = (
-            fetch_random_background()
-        )
+        (
+            image,
+            width,
+            height
+        ) = fetch_random_background()
+
+        STATE["current_image"] = image
+        STATE["current_width"] = width
+        STATE["current_height"] = height
 
         q, a = get_new_quote()
 
@@ -1047,33 +1245,20 @@ def handle_action(action_type: str):
         STATE["current_author"] = a
 
     return {
-        "status": "ok"
+        "status": "ok",
+        "width": STATE["current_width"],
+        "height": STATE["current_height"],
     }
 
 
 # ============================================================
-# ENDPOINT: DESCARGAR
+# DESCARGAR IMAGEN + CITA
 # ============================================================
 
 @app.get("/download")
 def download_wallpaper():
 
-    # Por seguridad, si alguien entra directamente a /download
-    # antes de generar /render-image.
-
-    if STATE["current_image"] is None:
-
-        STATE["current_image"] = (
-            fetch_random_background()
-        )
-
-    if STATE["current_quote"] is None:
-
-        q, a = get_new_quote()
-
-        STATE["current_quote"] = q
-        STATE["current_author"] = a
-
+    ensure_state()
 
     composite = generate_composite_image(
         STATE["current_image"],
@@ -1081,10 +1266,11 @@ def download_wallpaper():
         STATE["current_author"],
     )
 
-
     buf = io.BytesIO()
 
-    composite.convert("RGB").save(
+    composite.convert(
+        "RGB"
+    ).save(
         buf,
         format="JPEG",
         quality=100
@@ -1107,6 +1293,41 @@ def download_wallpaper():
 
 
 # ============================================================
+# DESCARGAR SOLO LA IMAGEN
+# ============================================================
+
+@app.get("/download-image")
+def download_image():
+
+    ensure_state()
+
+    buf = io.BytesIO()
+
+    STATE["current_image"].convert(
+        "RGB"
+    ).save(
+        buf,
+        format="JPEG",
+        quality=100
+    )
+
+    buf.seek(0)
+
+    headers = {
+        "Content-Disposition": (
+            "attachment; "
+            "filename=wallpaper.jpg"
+        )
+    }
+
+    return StreamingResponse(
+        buf,
+        media_type="image/jpeg",
+        headers=headers
+    )
+
+
+# ============================================================
 # INTERFAZ WEB
 # ============================================================
 
@@ -1118,6 +1339,7 @@ def index():
 
     return """
 <!DOCTYPE html>
+
 <html lang="es">
 
 <head>
@@ -1192,9 +1414,13 @@ def index():
 
             background-color: #1e293b;
 
-            aspect-ratio: 16 / 9;
-
             margin-bottom: 25px;
+
+            display: flex;
+
+            justify-content: center;
+
+            align-items: center;
         }
 
 
@@ -1202,9 +1428,11 @@ def index():
 
             width: 100%;
 
-            height: 100%;
+            height: auto;
 
-            object-fit: cover;
+            max-height: 75vh;
+
+            object-fit: contain;
 
             display: block;
         }
@@ -1289,6 +1517,8 @@ def index():
 
             align-items: center;
 
+            justify-content: center;
+
             gap: 8px;
         }
 
@@ -1318,6 +1548,71 @@ def index():
             background-color: #1d4ed8;
         }
 
+
+        .copy-success {
+
+            position: fixed;
+
+            bottom: 25px;
+
+            left: 50%;
+
+            transform:
+                translateX(-50%);
+
+            background:
+                rgba(30, 41, 59, 0.96);
+
+            color: white;
+
+            padding:
+                12px 20px;
+
+            border-radius: 8px;
+
+            font-weight: 600;
+
+            opacity: 0;
+
+            pointer-events: none;
+
+            transition:
+                opacity 0.25s ease;
+        }
+
+
+        .copy-success.show {
+
+            opacity: 1;
+        }
+
+
+        @media (max-width: 600px) {
+
+            body {
+
+                padding: 10px;
+            }
+
+
+            .btn-group {
+
+                gap: 8px;
+            }
+
+
+            button,
+            a.btn {
+
+                padding:
+                    10px 12px;
+
+                font-size:
+                    0.85rem;
+            }
+
+        }
+
     </style>
 
 </head>
@@ -1344,7 +1639,7 @@ def index():
             <img
                 id="wallpaper"
                 src="/render-image"
-                alt="Wallpaper Preview"
+                alt="Wallpaper con cita"
             >
 
 
@@ -1398,15 +1693,47 @@ def index():
             </a>
 
 
+            <a
+                href="/download-image"
+                class="btn"
+            >
+                📥 Descargar solo la imagen
+            </a>
+
+
+            <button
+                onclick="
+                    copyQuote()
+                "
+            >
+                📋 Copiar la cita
+            </button>
+
+
         </div>
 
 
     </div>
 
 
+    <div
+        id="copy-success"
+        class="copy-success"
+    >
+        ✓ Cita copiada
+    </div>
+
+
     <script>
 
-        async function triggerAction(actionType) {
+
+        // ====================================================
+        // CAMBIAR IMAGEN / CITA / AMBAS
+        // ====================================================
+
+        async function triggerAction(
+            actionType
+        ) {
 
             const loader =
                 document.getElementById(
@@ -1427,22 +1754,15 @@ def index():
             try {
 
                 await fetch(
-                    '/action/' + actionType
+                    '/action/'
+                    + actionType
                 );
 
 
-                img.src =
+                const newSrc =
                     '/render-image?t='
                     + new Date().getTime();
 
-
-            } catch (e) {
-
-                alert(
-                    'Error actualizando la imagen'
-                );
-
-            } finally {
 
                 img.onload = () => {
 
@@ -1451,6 +1771,76 @@ def index():
                     );
 
                 };
+
+
+                img.src = newSrc;
+
+
+            } catch (e) {
+
+                loader.classList.remove(
+                    'active'
+                );
+
+                alert(
+                    'Error actualizando la imagen'
+                );
+
+            }
+
+        }
+
+
+        // ====================================================
+        // COPIAR CITA
+        // ====================================================
+
+        async function copyQuote() {
+
+            try {
+
+                const response =
+                    await fetch(
+                        '/quote'
+                    );
+
+                const data =
+                    await response.json();
+
+
+                await navigator.clipboard.writeText(
+                    data.text
+                );
+
+
+                const message =
+                    document.getElementById(
+                        'copy-success'
+                    );
+
+
+                message.classList.add(
+                    'show'
+                );
+
+
+                setTimeout(
+                    () => {
+
+                        message.classList.remove(
+                            'show'
+                        );
+
+                    },
+                    1800
+                );
+
+
+            } catch (error) {
+
+                alert(
+                    'No se pudo copiar la cita.'
+                );
 
             }
 
