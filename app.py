@@ -1172,10 +1172,10 @@ def generate_composite_image(bg_image, quote_text, author_text):
         font, wrapped_lines, qwidth, qheight,
         author_lines, aheight, box_width, box_height,
         line_height, line_spacing
-    ) = prepare_quote_layout(quote_text, author_text, canvas_width, canvas_height)[cite: 1]
+    ) = prepare_quote_layout(quote_text, author_text, canvas_width, canvas_height)
 
-    hpos = int((canvas_width - box_width) * QUOTES_HPOS / 100)[cite: 1]
-    vpos = int((canvas_height - box_height) * QUOTES_VPOS / 100)[cite: 1]
+    hpos = int((canvas_width - box_width) * QUOTES_HPOS / 100)
+    vpos = int((canvas_height - box_height) * QUOTES_VPOS / 100)
 
     # 1. Recortar la región del fondo y aplicar desenfoque (efecto Glassmorphism)
     box_rect = (hpos, vpos, hpos + box_width, vpos + box_height)
@@ -1189,7 +1189,7 @@ def generate_composite_image(bg_image, quote_text, author_text):
     draw_overlay.rounded_rectangle(
         [0, 0, box_width, box_height], 
         radius=20, 
-        fill=(15, 23, 42, 160) # Color neutro oscuro estable
+        fill=(15, 23, 42, 160)
     )
 
     # 3. Componer el fondo desenfocado con la tarjeta sobre la imagen principal
@@ -1200,37 +1200,37 @@ def generate_composite_image(bg_image, quote_text, author_text):
     result.paste(card_composed, (hpos, vpos))
 
     draw = ImageDraw.Draw(result)
-    text_fill = (255, 255, 255, 255) # Texto siempre blanco puro sobre tarjeta oscura
+    text_fill = (255, 255, 255, 255)
 
     # 4. Renderizado del texto alineado
-    text_x = hpos + (box_width - qwidth) / 2[cite: 1]
-    text_y = vpos + MARGIN[cite: 1]
+    text_x = hpos + (box_width - qwidth) / 2
+    text_y = vpos + MARGIN
 
-    for line in wrapped_lines:[cite: 1]
+    for line in wrapped_lines:
         draw.text(
-            (int(text_x), int(text_y)),[cite: 1]
-            line,[cite: 1]
-            font=font,[cite: 1]
-            fill=text_fill[cite: 1]
+            (int(text_x), int(text_y)),
+            line,
+            font=font,
+            fill=text_fill
         )
-        text_y += line_height + line_spacing[cite: 1]
+        text_y += line_height + line_spacing
 
-    if author_lines:[cite: 1]
-        author_y = vpos + MARGIN + qheight + MARGIN / 2[cite: 1]
-        author_layout_width = box_width - 4 * MARGIN[cite: 1]
-        author_x = hpos + (box_width - qwidth) / 2[cite: 1]
+    if author_lines:
+        author_y = vpos + MARGIN + qheight + MARGIN / 2
+        author_layout_width = box_width - 4 * MARGIN
+        author_x = hpos + (box_width - qwidth) / 2
 
-        for author_line in author_lines:[cite: 1]
-            author_w = text_width(draw, author_line, font)[cite: 1]
-            author_draw_x = author_x + author_layout_width - author_w[cite: 1]
+        for author_line in author_lines:
+            author_w = text_width(draw, author_line, font)
+            author_draw_x = author_x + author_layout_width - author_w
 
             draw.text(
-                (int(author_draw_x), int(author_y)),[cite: 1]
-                author_line,[cite: 1]
-                font=font,[cite: 1]
-                fill=(226, 232, 240, 255) # Tono ligeramente más suave para el autor
+                (int(author_draw_x), int(author_y)),
+                author_line,
+                font=font,
+                fill=(226, 232, 240, 255)
             )
-            author_y += line_height[cite: 1]
+            author_y += line_height
 
     return result
 
