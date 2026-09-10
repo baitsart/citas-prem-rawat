@@ -2,8 +2,10 @@ import io
 import json
 import os
 import random
+import re
 import urllib.parse
 import urllib.request
+from html import unescape
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
@@ -41,6 +43,21 @@ USER_AGENT = (
 
 
 # ============================================================
+# TIMELESS TODAY
+#
+# Las citas se cargan UNA SOLA VEZ al iniciar la aplicación.
+# Después se mantienen en memoria.
+# ============================================================
+
+API_BASE = (
+    "https://api3.timelesstoday.io/"
+    "v2/cms/products/es-ES/group/2/12"
+)
+
+TIMESLESS_LIMIT = 12
+
+
+# ============================================================
 # PROPORCIONES DISPONIBLES
 #
 # El lado mayor siempre será 1920 px.
@@ -49,8 +66,11 @@ USER_AGENT = (
 # 2:3    -> 1280 x 1920
 # 3:2    -> 1920 x 1280
 # 3:4    -> 1440 x 1920
+# 4:3    -> 1920 x 1440
 # 4:5    -> 1536 x 1920
+# 5:4    -> 1920 x 1536
 # 5:3    -> 1920 x 1152
+# 3:5    -> 1152 x 1920
 # 16:9   -> 1920 x 1080
 # 9:16   -> 1080 x 1920
 # ============================================================
@@ -60,8 +80,11 @@ ASPECT_RATIOS = [
     (2, 3),
     (3, 2),
     (3, 4),
+    (4, 3),
     (4, 5),
+    (5, 4),
     (5, 3),
+    (3, 5),
     (16, 9),
     (9, 16),
 ]
@@ -117,6 +140,9 @@ MARGIN = 30
 
 # ============================================================
 # CITAS DE RESPALDO
+#
+# Se utilizan solamente si TimelessToday no puede cargar
+# las citas al iniciar la aplicación.
 # ============================================================
 
 CITAS_MEMORIA = [
@@ -145,6 +171,15 @@ CITAS_MEMORIA = [
         "Prem Rawat",
     ),
 ]
+
+
+# ============================================================
+# COLECCIÓN DE CITAS
+#
+# Aquí se almacenan TODAS las citas obtenidas de la API.
+# ============================================================
+
+ALL_QUOTES = []
 
 
 # ============================================================
@@ -208,6 +243,389 @@ def get_image_bytes(url):
     ) as resp:
 
         return resp.read()
+
+
+# ============================================================
+# TIMELESS TODAY
+# HACER PETICIÓN
+# ============================================================
+
+def hacer_peticion(offset):
+
+    url = f"{API_BASE}/{offset}"
+
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "application/json, text/plain, */*",
+        "Referer": "https://timelesstoday.tv/",
+        "Origin": "https://timelesstoday.tv",
+    }
+
+    req = urllib.request.Request(
+        url,
+        headers=headers
+    )
+
+    try:
+
+        with urllib.request.urlopen(
+            req,
+            timeout=15
+        ) as resp:
+
+            return json.loads(
+                resp.read().decode("utf-8")
+            )
+
+    except Exception as e:
+
+        print(
+            "ERROR TimelessToday:",
+            e
+        )
+
+        return None
+
+
+# ============================================================
+# PROCESAR EVENTO TIMELESS TODAY
+#
+# Mantiene las mismas reglas de limpieza de
+# citas_timelesstoday.py
+# ============================================================
+
+def procesar_evento(evento):
+
+    raw_cita = evento.get(
+        "tt_one_line_quote"
+    )
+
+    if not raw_cita:
+
+        return None
+
+    # --------------------------------------------------------
+    # 1. Limpieza inicial de HTML y espacios
+    # --------------------------------------------------------
+
+    texto = unescape(
+        str(raw_cita)
+    )
+
+    texto = re.sub(
+        r"<[^>]+>",
+        "",
+        texto
+    )
+
+    texto = re.sub(
+        r"\s+",
+        " ",
+        texto
+    ).strip()
+
+    # --------------------------------------------------------
+    # 2. Extraer "Prem Rawat" y fecha/lugar si vienen
+    # dentro de la propia cita
+    # --------------------------------------------------------
+
+    lugar_fecha = None
+
+    match_firma = re.search(
+        r"[\s–\-—]*Prem\s+Rawat(?:,\s*(.+))?$",
+        texto,
+        flags=re.IGNORECASE
+    )
+
+    if match_firma:
+
+        texto = texto[
+            :match_firma.start()
+        ].strip()
+
+        if match_firma.group(1):
+
+            lugar_fecha = (
+                match_firma.group(1)
+                .strip()
+            )
+
+    # --------------------------------------------------------
+    # 3. Si no venía fecha/lugar dentro del texto,
+    # usamos el nombre del evento
+    # --------------------------------------------------------
+
+    if not lugar_fecha:
+
+        nombre_evento = evento.get(
+            "tt_name"
+        )
+
+        if (
+            nombre_evento
+            and nombre_evento.strip()
+        ):
+
+            lugar_fecha = (
+                nombre_evento.strip()
+            )
+
+    # --------------------------------------------------------
+    # 4. Limpiar comillas basura
+    # --------------------------------------------------------
+
+    texto = re.sub(
+        r'^["“”’\']+|["“”’\']+$',
+        "",
+        texto
+    ).strip()
+
+    texto = re.sub(
+        r'["”’\']+\s*\.?$',
+        "",
+        texto
+    ).strip()
+
+    # --------------------------------------------------------
+    # Asegurar punto final
+    # --------------------------------------------------------
+
+    if (
+        texto
+        and not texto.endswith(
+            (".", "!", "?", "…")
+        )
+    ):
+
+        texto += "."
+
+    if not texto:
+
+        return None
+
+    # --------------------------------------------------------
+    # 5. Formatear
+    # --------------------------------------------------------
+
+    if lugar_fecha:
+
+        lugar_fecha = re.sub(
+            r'^["“”’\']+|["“”’\']+$',
+            "",
+            lugar_fecha
+        ).strip()
+
+        lugar_fecha = (
+            lugar_fecha.rstrip(".")
+        )
+
+        return (
+            f'“{texto}” — Prem Rawat, '
+            f'{lugar_fecha}'
+        )
+
+    else:
+
+        return (
+            f'“{texto}” — Prem Rawat'
+        )
+
+
+# ============================================================
+# CARGAR TODAS LAS CITAS DE TIMELESS TODAY
+#
+# Esta función se ejecuta solamente al iniciar la aplicación.
+# ============================================================
+
+def load_all_quotes():
+
+    global ALL_QUOTES
+
+    print(
+        "INFO: Cargando citas de TimelessToday..."
+    )
+
+    primera_pagina = hacer_peticion(0)
+
+    if not primera_pagina:
+
+        print(
+            "WARNING: No se pudo obtener "
+            "la primera página de TimelessToday."
+        )
+
+        ALL_QUOTES = list(
+            CITAS_MEMORIA
+        )
+
+        return
+
+    total_eventos = (
+        primera_pagina
+        .get("filter", {})
+        .get("count", 0)
+    )
+
+    if total_eventos == 0:
+
+        print(
+            "WARNING: TimelessToday "
+            "no devolvió eventos."
+        )
+
+        ALL_QUOTES = list(
+            CITAS_MEMORIA
+        )
+
+        return
+
+    print(
+        f"INFO: TimelessToday informa "
+        f"{total_eventos} eventos."
+    )
+
+    offsets = list(
+        range(
+            0,
+            total_eventos,
+            TIMESLESS_LIMIT
+        )
+    )
+
+    citas = []
+
+    for offset in offsets:
+
+        # ----------------------------------------------------
+        # La página 0 ya la tenemos.
+        # ----------------------------------------------------
+
+        if offset == 0:
+
+            datos = primera_pagina
+
+        else:
+
+            datos = hacer_peticion(
+                offset
+            )
+
+        if not datos:
+
+            print(
+                f"WARNING: No se pudo cargar "
+                f"offset {offset}."
+            )
+
+            continue
+
+        eventos = datos.get(
+            "data",
+            []
+        )
+
+        for evento in eventos:
+
+            cita = procesar_evento(
+                evento
+            )
+
+            if cita:
+
+                citas.append(
+                    cita
+                )
+
+    # --------------------------------------------------------
+    # Eliminar duplicados conservando orden
+    # --------------------------------------------------------
+
+    citas_unicas = list(
+        dict.fromkeys(citas)
+    )
+
+    if citas_unicas:
+
+        ALL_QUOTES = citas_unicas
+
+        print(
+            "INFO: Citas cargadas: "
+            f"{len(ALL_QUOTES)}"
+        )
+
+    else:
+
+        print(
+            "WARNING: No se pudo procesar "
+            "ninguna cita de TimelessToday."
+        )
+
+        ALL_QUOTES = list(
+            CITAS_MEMORIA
+        )
+
+
+# ============================================================
+# CITA ALEATORIA
+#
+# IMPORTANTE:
+#
+# NO consulta Internet.
+#
+# Simplemente elige una de TODAS las citas que fueron
+# cargadas al iniciar la aplicación.
+# ============================================================
+
+def get_new_quote():
+
+    if not ALL_QUOTES:
+
+        return random.choice(
+            CITAS_MEMORIA
+        )
+
+    quote = random.choice(
+        ALL_QUOTES
+    )
+
+    # --------------------------------------------------------
+    # Las citas de TimelessToday ya vienen completas como:
+    #
+    # “texto” — Prem Rawat, lugar/fecha
+    #
+    # Aquí las separamos para que el resto de app.py
+    # continúe funcionando exactamente igual.
+    # --------------------------------------------------------
+
+    match = re.match(
+        r'^“(.*)”\s+—\s+Prem\s+Rawat(?:,\s*(.*))?$',
+        quote,
+        flags=re.DOTALL
+    )
+
+    if match:
+
+        texto = match.group(1)
+
+        autor = "Prem Rawat"
+
+        if match.group(2):
+
+            autor += ", " + match.group(2)
+
+        return (
+            texto,
+            autor
+        )
+
+    # --------------------------------------------------------
+    # Respaldo por si alguna cita no coincide con el formato.
+    # --------------------------------------------------------
+
+    return (
+        quote,
+        "Prem Rawat"
+    )
 
 
 # ============================================================
@@ -311,9 +729,6 @@ def get_bing_wallpaper():
 # RECORTE PROPORCIONAL
 #
 # NO deforma la imagen.
-#
-# La imagen se amplía hasta cubrir completamente
-# el formato elegido y luego se recorta el sobrante.
 # ============================================================
 
 def fit_wallpaper(
@@ -329,14 +744,11 @@ def fit_wallpaper(
     iw, ih = image.size
 
     source_ratio = iw / ih
+
     target_ratio = (
         target_width
         / target_height
     )
-
-    # --------------------------------------------------------
-    # Imagen demasiado ancha
-    # --------------------------------------------------------
 
     if source_ratio > target_ratio:
 
@@ -346,10 +758,6 @@ def fit_wallpaper(
             target_height
             * source_ratio
         )
-
-    # --------------------------------------------------------
-    # Imagen demasiado alta
-    # --------------------------------------------------------
 
     else:
 
@@ -367,10 +775,6 @@ def fit_wallpaper(
         ),
         Image.Resampling.LANCZOS
     )
-
-    # --------------------------------------------------------
-    # Recorte centrado
-    # --------------------------------------------------------
 
     left = max(
         0,
@@ -445,10 +849,6 @@ def fetch_random_background():
 
             continue
 
-    # --------------------------------------------------------
-    # Fondo de emergencia
-    # --------------------------------------------------------
-
     img = Image.new(
         "RGB",
         (
@@ -466,22 +866,7 @@ def fetch_random_background():
 
 
 # ============================================================
-# CITA ALEATORIA
-# ============================================================
-
-def get_new_quote():
-
-    return random.choice(
-        CITAS_MEMORIA
-    )
-
-
-# ============================================================
 # COLOR REPRESENTATIVO
-#
-# Equivalente al método utilizado en Variety:
-#
-# imagen -> 1x1 -> RGB
 # ============================================================
 
 def get_image_representative_color(
@@ -540,8 +925,6 @@ def text_height(
 
 # ============================================================
 # WRAP DE TEXTO
-#
-# Equivalente a Pango.WrapMode.WORD
 # ============================================================
 
 def wrap_text(
@@ -623,12 +1006,6 @@ def prepare_quote_layout(
         dummy
     )
 
-    # --------------------------------------------------------
-    # Igual que:
-    #
-    # sw * QUOTES_WIDTH / 100
-    # --------------------------------------------------------
-
     initial_width = max(
         200,
         canvas_width
@@ -640,10 +1017,6 @@ def prepare_quote_layout(
         initial_width
         - 4 * MARGIN
     )
-
-    # --------------------------------------------------------
-    # CITA
-    # --------------------------------------------------------
 
     wrapped_lines = wrap_text(
         quote,
@@ -666,10 +1039,6 @@ def prepare_quote_layout(
     else:
 
         qwidth = 0
-
-    # --------------------------------------------------------
-    # Altura de línea
-    # --------------------------------------------------------
 
     bbox = draw.textbbox(
         (0, 0),
@@ -701,12 +1070,6 @@ def prepare_quote_layout(
 
         qheight = 0
 
-    # --------------------------------------------------------
-    # Igual que Variety:
-    #
-    # width = qwidth + 4*MARGIN
-    # --------------------------------------------------------
-
     if QUOTES_WIDTH < 98:
 
         box_width = (
@@ -717,10 +1080,6 @@ def prepare_quote_layout(
     else:
 
         box_width = canvas_width
-
-    # --------------------------------------------------------
-    # FIRMA
-    # --------------------------------------------------------
 
     author_lines = []
 
@@ -747,15 +1106,6 @@ def prepare_quote_layout(
                 len(author_lines)
                 * line_height
             )
-
-    # --------------------------------------------------------
-    # Igual que Variety:
-    #
-    # height =
-    #     qheight
-    #     + aheight
-    #     + 2.5*MARGIN
-    # --------------------------------------------------------
 
     box_height = (
         qheight
@@ -792,10 +1142,6 @@ def generate_composite_image(
     canvas_width = bg_image.width
     canvas_height = bg_image.height
 
-    # ========================================================
-    # COLOR
-    # ========================================================
-
     bg_color = (
         get_image_representative_color(
             bg_image
@@ -808,11 +1154,6 @@ def generate_composite_image(
         "INFO: Color representativo: "
         f"RGB {r}, {g}, {b}"
     )
-
-
-    # ========================================================
-    # LAYOUT
-    # ========================================================
 
     (
         font,
@@ -832,21 +1173,6 @@ def generate_composite_image(
         canvas_height
     )
 
-
-    # ========================================================
-    # POSICIÓN HORIZONTAL
-    #
-    # Variety:
-    #
-    # hpos =
-    # trimw
-    # +
-    # (sw-width) * HPos / 100
-    #
-    # Aquí la imagen ya está recortada,
-    # por lo que trimw = 0.
-    # ========================================================
-
     hpos = int(
         (
             canvas_width
@@ -856,11 +1182,6 @@ def generate_composite_image(
         / 100
     )
 
-
-    # ========================================================
-    # POSICIÓN VERTICAL
-    # ========================================================
-
     vpos = int(
         (
             canvas_height
@@ -869,11 +1190,6 @@ def generate_composite_image(
         * QUOTES_VPOS
         / 100
     )
-
-
-    # ========================================================
-    # CAPA DEL RECUADRO
-    # ========================================================
 
     overlay = Image.new(
         "RGBA",
@@ -888,21 +1204,11 @@ def generate_composite_image(
         overlay
     )
 
-
-    # ========================================================
-    # OPACIDAD
-    # ========================================================
-
     alpha = int(
         255
         * BG_OPACITY
         / 100
     )
-
-
-    # ========================================================
-    # RECUADRO
-    # ========================================================
 
     draw_overlay.rectangle(
         [
@@ -919,11 +1225,6 @@ def generate_composite_image(
         )
     )
 
-
-    # ========================================================
-    # COMPONER
-    # ========================================================
-
     result = Image.alpha_composite(
         bg_image.convert("RGBA"),
         overlay
@@ -932,15 +1233,6 @@ def generate_composite_image(
     draw = ImageDraw.Draw(
         result
     )
-
-
-    # ========================================================
-    # TEXTO
-    #
-    # Igual que Variety:
-    #
-    # hpos + (width-qwidth)/2
-    # ========================================================
 
     text_x = (
         hpos
@@ -956,16 +1248,7 @@ def generate_composite_image(
         + MARGIN
     )
 
-
-    # ========================================================
-    # CITA
-    # ========================================================
-
     for line in wrapped_lines:
-
-        # ----------------------------------------------------
-        # Sombra
-        # ----------------------------------------------------
 
         if TEXT_SHADOW:
 
@@ -983,10 +1266,6 @@ def generate_composite_image(
                     51
                 )
             )
-
-        # ----------------------------------------------------
-        # Texto
-        # ----------------------------------------------------
 
         draw.text(
             (
@@ -1007,13 +1286,6 @@ def generate_composite_image(
             line_height
             + line_spacing
         )
-
-
-    # ========================================================
-    # FIRMA
-    #
-    # A LA DERECHA
-    # ========================================================
 
     if author_lines:
 
@@ -1052,10 +1324,6 @@ def generate_composite_image(
                 - author_w
             )
 
-            # ------------------------------------------------
-            # Sombra
-            # ------------------------------------------------
-
             if TEXT_SHADOW:
 
                 draw.text(
@@ -1079,10 +1347,6 @@ def generate_composite_image(
                     )
                 )
 
-            # ------------------------------------------------
-            # Firma
-            # ------------------------------------------------
-
             draw.text(
                 (
                     int(
@@ -1103,7 +1367,6 @@ def generate_composite_image(
             )
 
             author_y += line_height
-
 
     return result
 
@@ -1172,8 +1435,6 @@ def render_image():
 
 # ============================================================
 # INFORMACIÓN DE LA CITA
-#
-# Usada por el botón "Copiar la cita".
 # ============================================================
 
 @app.get("/quote")
@@ -1353,7 +1614,6 @@ def index():
 
     <title>Citas de Prem Rawat</title>
 
-
     <style>
 
         * {
@@ -1361,7 +1621,6 @@ def index():
             margin: 0;
             padding: 0;
         }
-
 
         body {
 
@@ -1387,7 +1646,6 @@ def index():
             padding: 20px;
         }
 
-
         .container {
 
             max-width: 1000px;
@@ -1396,7 +1654,6 @@ def index():
 
             text-align: center;
         }
-
 
         .preview-card {
 
@@ -1423,7 +1680,6 @@ def index():
             align-items: center;
         }
 
-
         .preview-card img {
 
             width: 100%;
@@ -1436,7 +1692,6 @@ def index():
 
             display: block;
         }
-
 
         .loader {
 
@@ -1468,14 +1723,12 @@ def index():
                 opacity 0.2s ease;
         }
 
-
         .loader.active {
 
             opacity: 1;
 
             pointer-events: all;
         }
-
 
         .btn-group {
 
@@ -1487,7 +1740,6 @@ def index():
 
             flex-wrap: wrap;
         }
-
 
         button,
         a.btn {
@@ -1522,7 +1774,6 @@ def index():
             gap: 8px;
         }
 
-
         button:hover,
         a.btn:hover {
 
@@ -1532,7 +1783,6 @@ def index():
                 translateY(-2px);
         }
 
-
         button.primary,
         a.btn.primary {
 
@@ -1541,13 +1791,11 @@ def index():
             border-color: #3b82f6;
         }
 
-
         button.primary:hover,
         a.btn.primary:hover {
 
             background-color: #1d4ed8;
         }
-
 
         .copy-success {
 
@@ -1580,12 +1828,10 @@ def index():
                 opacity 0.25s ease;
         }
 
-
         .copy-success.show {
 
             opacity: 1;
         }
-
 
         @media (max-width: 600px) {
 
@@ -1594,12 +1840,10 @@ def index():
                 padding: 10px;
             }
 
-
             .btn-group {
 
                 gap: 8px;
             }
-
 
             button,
             a.btn {
@@ -1617,12 +1861,9 @@ def index():
 
 </head>
 
-
 <body>
 
-
     <div class="container">
-
 
         <h1
             style="
@@ -1632,16 +1873,13 @@ def index():
             🖼️ Citas de Prem
         </h1>
 
-
         <div class="preview-card">
-
 
             <img
                 id="wallpaper"
                 src="/render-image"
                 alt="Wallpaper con cita"
             >
-
 
             <div
                 id="loader"
@@ -1650,12 +1888,9 @@ def index():
                 Procesando...
             </div>
 
-
         </div>
 
-
         <div class="btn-group">
-
 
             <button
                 onclick="
@@ -1665,7 +1900,6 @@ def index():
                 🖼️ Cambiar de imagen
             </button>
 
-
             <button
                 onclick="
                     triggerAction('change_quote')
@@ -1673,7 +1907,6 @@ def index():
             >
                 ✍️ Cambiar de cita
             </button>
-
 
             <button
                 onclick="
@@ -1683,7 +1916,6 @@ def index():
                 🔀 Cambiar ambas
             </button>
 
-
             <a
                 href="/download"
                 class="btn primary"
@@ -1692,14 +1924,12 @@ def index():
                 📥 Descargar
             </a>
 
-
             <a
                 href="/download-image"
                 class="btn"
             >
                 📥 Descargar solo la imagen
             </a>
-
 
             <button
                 onclick="
@@ -1709,12 +1939,9 @@ def index():
                 📋 Copiar la cita
             </button>
 
-
         </div>
 
-
     </div>
-
 
     <div
         id="copy-success"
@@ -1723,9 +1950,7 @@ def index():
         ✓ Cita copiada
     </div>
 
-
     <script>
-
 
         // ====================================================
         // CAMBIAR IMAGEN / CITA / AMBAS
@@ -1745,11 +1970,9 @@ def index():
                     'wallpaper'
                 );
 
-
             loader.classList.add(
                 'active'
             );
-
 
             try {
 
@@ -1758,11 +1981,9 @@ def index():
                     + actionType
                 );
 
-
                 const newSrc =
                     '/render-image?t='
                     + new Date().getTime();
-
 
                 img.onload = () => {
 
@@ -1772,9 +1993,7 @@ def index():
 
                 };
 
-
                 img.src = newSrc;
-
 
             } catch (e) {
 
@@ -1807,22 +2026,18 @@ def index():
                 const data =
                     await response.json();
 
-
                 await navigator.clipboard.writeText(
                     data.text
                 );
-
 
                 const message =
                     document.getElementById(
                         'copy-success'
                     );
 
-
                 message.classList.add(
                     'show'
                 );
-
 
                 setTimeout(
                     () => {
@@ -1834,7 +2049,6 @@ def index():
                     },
                     1800
                 );
-
 
             } catch (error) {
 
@@ -1848,11 +2062,19 @@ def index():
 
     </script>
 
-
 </body>
 
 </html>
 """
+
+
+# ============================================================
+# CARGAR CITAS AL INICIAR
+#
+# Se ejecuta antes de aceptar peticiones.
+# ============================================================
+
+load_all_quotes()
 
 
 # ============================================================
