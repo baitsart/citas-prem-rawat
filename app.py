@@ -135,7 +135,7 @@ def get_random_dimensions():
 # Basados en cita-variety.py
 # ============================================================
 
-FONT_SIZE = 42
+FONT_SIZE = 44
 
 BG_OPACITY = 55
 
@@ -212,7 +212,7 @@ STATE = {
 def get_quote_font():
 
     candidates = [
-        "/usr/share/fonts/truetype/liberation/LiberationSerif-BoldItalic.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSansBoldOblique.ttf",
         "/usr/share/fonts/truetype/liberation2/LiberationSerif-Regular.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf",
         "DejaVuSerif.ttf",
@@ -431,7 +431,7 @@ def procesar_evento(evento):
 
         return (
             f'“{texto}” — Prem Rawat, '
-            f'{lugar_fecha}'
+            f'({lugar_fecha})'
         )
 
     else:
