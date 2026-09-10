@@ -1134,13 +1134,19 @@ def prepare_quote_layout(
 # GENERAR IMAGEN COMPUESTA
 # ============================================================
 
-def get_text_color(image):
+def get_text_color(image, box):
     """
-    Determina si conviene texto claro u oscuro
-    según la luminosidad del fondo.
+    Elige automáticamente texto claro u oscuro
+    según la luminosidad de la zona donde estará
+    la cita.
     """
 
-    small = image.resize((40, 40), Image.Resampling.LANCZOS)
+    crop = image.crop(box)
+
+    small = crop.resize(
+        (40, 40),
+        Image.Resampling.LANCZOS
+    )
 
     pixels = list(small.getdata())
 
@@ -1157,79 +1163,253 @@ def get_text_color(image):
     if luminance >= 145:
         return (
             (20, 20, 20, 255),
-            (255, 255, 255, 190)
+            (255, 255, 255, 220)
         )
 
     return (
         (255, 255, 255, 255),
-        (0, 0, 0, 210)
+        (0, 0, 0, 220)
     )
 
-def generate_composite_image(bg_image, quote_text, author_text):
-    canvas_width, canvas_height = bg_image.size
+def generate_composite_image(
+    bg_image,
+    quote_text,
+    author_text
+):
+
+    canvas_width = bg_image.width
+    canvas_height = bg_image.height
+
+    bg_color = (
+        get_image_representative_color(
+            bg_image
+        )
+    )
+
+    r, g, b = bg_color
+
+    print(
+        "INFO: Color representativo: "
+        f"RGB {r}, {g}, {b}"
+    )
 
     (
-        font, wrapped_lines, qwidth, qheight,
-        author_lines, aheight, box_width, box_height,
-        line_height, line_spacing
-    ) = prepare_quote_layout(quote_text, author_text, canvas_width, canvas_height)
-
-    hpos = int((canvas_width - box_width) * QUOTES_HPOS / 100)
-    vpos = int((canvas_height - box_height) * QUOTES_VPOS / 100)
-
-    # 1. Recortar la región del fondo y aplicar desenfoque (efecto Glassmorphism)
-    box_rect = (hpos, vpos, hpos + box_width, vpos + box_height)
-    crop_bg = bg_image.crop(box_rect).filter(ImageFilter.GaussianBlur(radius=15))
-
-    # 2. Tarjeta semi-transparente neutra con esquinas redondeadas
-    overlay = Image.new("RGBA", (box_width, box_height), (0, 0, 0, 0))
-    draw_overlay = ImageDraw.Draw(overlay)
-    
-    # Fondo oscuro semi-transparente con alta opacidad para contraste estable
-    draw_overlay.rounded_rectangle(
-        [0, 0, box_width, box_height], 
-        radius=20, 
-        fill=(15, 23, 42, 160)
+        font,
+        wrapped_lines,
+        qwidth,
+        qheight,
+        author_lines,
+        aheight,
+        box_width,
+        box_height,
+        line_height,
+        line_spacing,
+    ) = prepare_quote_layout(
+        quote_text,
+        author_text,
+        canvas_width,
+        canvas_height
     )
 
-    # 3. Componer el fondo desenfocado con la tarjeta sobre la imagen principal
-    crop_bg_rgba = crop_bg.convert("RGBA")
-    card_composed = Image.alpha_composite(crop_bg_rgba, overlay)
+    hpos = int(
+        (
+            canvas_width
+            - box_width
+        )
+        * QUOTES_HPOS
+        / 100
+    )
+
+    vpos = int(
+        (
+            canvas_height
+            - box_height
+        )
+        * QUOTES_VPOS
+        / 100
+    )
+
+    overlay = Image.new(
+        "RGBA",
+        (
+            canvas_width,
+            canvas_height
+        ),
+        (0, 0, 0, 0)
+    )
+
+    draw_overlay = ImageDraw.Draw(
+        overlay
+    )
+
+    alpha = int(
+        255
+        * BG_OPACITY
+        / 100
+    )
+
+    draw_overlay.rectangle(
+        [
+            hpos,
+            vpos,
+            hpos + box_width,
+            vpos + box_height
+        ],
+        fill=(
+            r,
+            g,
+            b,
+            alpha
+        )
+    )
+
+    result = Image.alpha_composite(
+        bg_image.convert("RGBA"),
+        overlay
+    )
+
+    draw = ImageDraw.Draw(
+        result
+    )
+
+    text_box = (
+        hpos,
+        vpos,
+        hpos + box_width,
+        vpos + box_height
+    )
     
-    result = bg_image.convert("RGBA")
-    result.paste(card_composed, (hpos, vpos))
+    text_fill, text_stroke = get_text_color(
+        result,
+        text_box
+    )
 
-    draw = ImageDraw.Draw(result)
-    text_fill = (255, 255, 255, 255)
+    text_x = (
+        hpos
+        + (
+            box_width
+            - qwidth
+        )
+        / 2
+    )
 
-    # 4. Renderizado del texto alineado
-    text_x = hpos + (box_width - qwidth) / 2
-    text_y = vpos + MARGIN
+    text_y = (
+        vpos
+        + MARGIN
+    )
 
     for line in wrapped_lines:
-        draw.text(
-            (int(text_x), int(text_y)),
-            line,
-            font=font,
-            fill=text_fill
-        )
-        text_y += line_height + line_spacing
 
-    if author_lines:
-        author_y = vpos + MARGIN + qheight + MARGIN / 2
-        author_layout_width = box_width - 4 * MARGIN
-        author_x = hpos + (box_width - qwidth) / 2
-
-        for author_line in author_lines:
-            author_w = text_width(draw, author_line, font)
-            author_draw_x = author_x + author_layout_width - author_w
+        if TEXT_SHADOW:
 
             draw.text(
-                (int(author_draw_x), int(author_y)),
+                (
+                    int(text_x + 2),
+                    int(text_y + 2)
+                ),
+                line,
+                font=font,
+                fill=(
+                    0,
+                    0,
+                    0,
+                    51
+                )
+            )
+
+        draw.text(
+            (
+                int(text_x),
+                int(text_y)
+            ),
+            line,
+            font=font,
+            fill=text_fill,
+            stroke_width=2,
+            stroke_fill=text_stroke
+        )
+
+        text_y += (
+            line_height
+            + line_spacing
+        )
+
+    if author_lines:
+
+        author_y = (
+            vpos
+            + MARGIN
+            + qheight
+            + MARGIN / 2
+        )
+
+        author_layout_width = (
+            box_width
+            - 4 * MARGIN
+        )
+
+        author_x = (
+            hpos
+            + (
+                box_width
+                - qwidth
+            )
+            / 2
+        )
+
+        for author_line in author_lines:
+
+            author_w = text_width(
+                draw,
+                author_line,
+                font
+            )
+
+            author_draw_x = (
+                author_x
+                + author_layout_width
+                - author_w
+            )
+
+            if TEXT_SHADOW:
+
+                draw.text(
+                    (
+                        int(
+                            author_draw_x
+                            + 2
+                        ),
+                        int(
+                            author_y
+                            + 2
+                        )
+                    ),
+                    author_line,
+                    font=font,
+                    fill=(
+                        0,
+                        0,
+                        0,
+                        51
+                    )
+                )
+
+            draw.text(
+                (
+                    int(
+                        author_draw_x
+                    ),
+                    int(
+                        author_y
+                    )
+                ),
                 author_line,
                 font=font,
-                fill=(226, 232, 240, 255)
+                fill=text_fill,
+                stroke_width=2,
+                stroke_fill=text_stroke
             )
+
             author_y += line_height
 
     return result
