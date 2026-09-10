@@ -28,11 +28,20 @@ WALLHAVEN_API_KEY = os.environ.get(
 )
 
 WALLHAVEN_TAGS = [
-    "Japan",
     "nature",
+    "landscape",
+    "mountains",
+    "forest",
+    "ocean",
+    "animals",
     "space",
-    "animals"
+    "Japan",
+    "architecture",
+    "city",
 ]
+
+RECENT_WALLHAVEN_IDS = []
+MAX_RECENT_WALLHAVEN = 40
 
 USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) "
@@ -633,55 +642,53 @@ def get_new_quote():
 # ============================================================
 
 def get_wallhaven_wallpaper():
+    tag = random.choice(WALLHAVEN_TAGS)
 
-    tag = random.choice(
-        WALLHAVEN_TAGS
-    )
+    query = urllib.parse.urlencode({
+        "q": tag,
+        "apikey": WALLHAVEN_API_KEY,
+        "sorting": "random",
+        "purity": "100",
+        "categories": "100",
+    })
 
-    query = urllib.parse.urlencode(
-        {
-            "q": tag,
-            "apikey": WALLHAVEN_API_KEY,
-            "sorting": "random",
-            "purity": "100",
-        }
-    )
-
-    api_url = (
-        "https://wallhaven.cc/api/v1/search?"
-        + query
-    )
+    api_url = "https://wallhaven.cc/api/v1/search?" + query
 
     req = urllib.request.Request(
         api_url,
-        headers={
-            "User-Agent": USER_AGENT
-        }
+        headers={"User-Agent": USER_AGENT}
     )
 
-    with urllib.request.urlopen(
-        req,
-        timeout=10
-    ) as resp:
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
 
-        data = json.loads(
-            resp.read().decode("utf-8")
-        )
+    results = data.get("data", [])
 
-        results = data.get(
-            "data",
-            []
-        )
+    if not results:
+        raise RuntimeError("No se encontraron resultados en Wallhaven.")
 
-        if results:
+    # Preferir imágenes que no hayan aparecido recientemente.
+    disponibles = [
+        item for item in results
+        if item.get("id") not in RECENT_WALLHAVEN_IDS
+    ]
 
-            return get_image_bytes(
-                results[0]["path"]
-            )
+    if not disponibles:
+        disponibles = results
 
-    raise RuntimeError(
-        "No se encontraron resultados en Wallhaven."
-    )
+    elegido = random.choice(disponibles)
+
+    wallpaper_id = elegido.get("id")
+
+    if wallpaper_id:
+        RECENT_WALLHAVEN_IDS.append(wallpaper_id)
+
+        if len(RECENT_WALLHAVEN_IDS) > MAX_RECENT_WALLHAVEN:
+            del RECENT_WALLHAVEN_IDS[
+                :len(RECENT_WALLHAVEN_IDS) - MAX_RECENT_WALLHAVEN
+            ]
+
+    return get_image_bytes(elegido["path"])
 
 
 # ============================================================
@@ -809,60 +816,54 @@ def fit_wallpaper(
 # ============================================================
 
 def fetch_random_background():
+    target_width, target_height = get_random_dimensions()
 
-    target_width, target_height = (
-        get_random_dimensions()
-    )
+    # Wallhaven es la fuente principal.
+    try:
+        img_data = get_wallhaven_wallpaper()
 
-    providers = [
-        get_wallhaven_wallpaper,
-        get_bing_wallpaper,
-    ]
+        img = Image.open(
+            io.BytesIO(img_data)
+        ).convert("RGB")
 
-    random.shuffle(
-        providers
-    )
-
-    for provider in providers:
-
-        try:
-
-            img_data = provider()
-
-            img = Image.open(
-                io.BytesIO(img_data)
-            ).convert("RGB")
-
-            img = fit_wallpaper(
-                img,
-                target_width,
-                target_height
-            )
-
-            return (
-                img,
-                target_width,
-                target_height
-            )
-
-        except Exception:
-
-            continue
-
-    img = Image.new(
-        "RGB",
-        (
+        img = fit_wallpaper(
+            img,
             target_width,
             target_height
-        ),
+        )
+
+        return img, target_width, target_height
+
+    except Exception:
+        pass
+
+    # Bing queda solamente como respaldo.
+    try:
+        img_data = get_bing_wallpaper()
+
+        img = Image.open(
+            io.BytesIO(img_data)
+        ).convert("RGB")
+
+        img = fit_wallpaper(
+            img,
+            target_width,
+            target_height
+        )
+
+        return img, target_width, target_height
+
+    except Exception:
+        pass
+
+    # Último respaldo.
+    img = Image.new(
+        "RGB",
+        (target_width, target_height),
         color=(40, 50, 60)
     )
 
-    return (
-        img,
-        target_width,
-        target_height
-    )
+    return img, target_width, target_height
 
 
 # ============================================================
@@ -1133,6 +1134,37 @@ def prepare_quote_layout(
 # GENERAR IMAGEN COMPUESTA
 # ============================================================
 
+def get_text_color(image):
+    """
+    Determina si conviene texto claro u oscuro
+    según la luminosidad del fondo.
+    """
+
+    small = image.resize((40, 40), Image.Resampling.LANCZOS)
+
+    pixels = list(small.getdata())
+
+    r = sum(p[0] for p in pixels) / len(pixels)
+    g = sum(p[1] for p in pixels) / len(pixels)
+    b = sum(p[2] for p in pixels) / len(pixels)
+
+    luminance = (
+        0.2126 * r +
+        0.7152 * g +
+        0.0722 * b
+    )
+
+    if luminance >= 145:
+        return (
+            (20, 20, 20, 255),
+            (255, 255, 255, 190)
+        )
+
+    return (
+        (255, 255, 255, 255),
+        (0, 0, 0, 210)
+    )
+
 def generate_composite_image(
     bg_image,
     quote_text,
@@ -1234,6 +1266,8 @@ def generate_composite_image(
         result
     )
 
+    text_fill, text_stroke = get_text_color(result)
+
     text_x = (
         hpos
         + (
@@ -1274,12 +1308,9 @@ def generate_composite_image(
             ),
             line,
             font=font,
-            fill=(
-                255,
-                255,
-                255,
-                255
-            )
+            fill=text_fill,
+            stroke_width=2,
+            stroke_fill=text_stroke
         )
 
         text_y += (
@@ -1358,12 +1389,9 @@ def generate_composite_image(
                 ),
                 author_line,
                 font=font,
-                fill=(
-                    255,
-                    255,
-                    255,
-                    255
-                )
+                fill=text_fill,
+                stroke_width=2,
+                stroke_fill=text_stroke
             )
 
             author_y += line_height
