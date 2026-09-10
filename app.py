@@ -6,6 +6,7 @@ import re
 import urllib.parse
 import urllib.request
 from html import unescape
+from datetime import datetime
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
@@ -211,11 +212,10 @@ STATE = {
 def get_quote_font():
 
     candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-        "DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSerif-BoldItalic.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSerif-Regular.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf",
+        "DejaVuSerif.ttf",
     ]
 
     for filename in candidates:
@@ -1568,10 +1568,16 @@ def download_wallpaper():
 
     buf.seek(0)
 
+    nombre_archivo = (
+        "cita_"
+        + datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        + ".jpg"
+    )
+    
     headers = {
         "Content-Disposition": (
             "attachment; "
-            "filename=wallpaper_cita.jpg"
+            f"filename={nombre_archivo}"
         )
     }
 
