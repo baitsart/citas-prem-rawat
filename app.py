@@ -2389,7 +2389,7 @@ def index():
                     class="font-selector-button"
                     onclick="toggleFontSelector()"
                 >
-                    🔤
+                    Más tipos<br>de letras
                 </button>
             
                 <div
