@@ -1658,6 +1658,8 @@ def download_wallpaper():
         STATE["current_image"],
         STATE["current_quote"],
         STATE["current_author"],
+        STATE["font_path"],
+        STATE["font_size"],
     )
 
     buf = io.BytesIO()
