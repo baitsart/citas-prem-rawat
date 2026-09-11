@@ -275,6 +275,8 @@ STATE = {
     "current_author": None,
     "current_width": None,
     "current_height": None,
+    "font_path": None,
+    "font_size": 30,
 }
 
 
@@ -1065,10 +1067,21 @@ def prepare_quote_layout(
     quote,
     author,
     canvas_width,
-    canvas_height
+    canvas_height,
+    font_path=None,
+    font_size=30
 ):
 
-    font = get_quote_font()
+    if font_path:
+    
+        font = ImageFont.truetype(
+            font_path,
+            font_size
+        )
+    
+    else:
+    
+        font = get_quote_font()
 
     dummy = Image.new(
         "RGB",
@@ -1243,7 +1256,9 @@ def get_text_color(image):
 def generate_composite_image(
     bg_image,
     quote_text,
-    author_text
+    author_text,
+    font_path=None,
+    font_size=30
 ):
 
     canvas_width = bg_image.width
@@ -1277,7 +1292,9 @@ def generate_composite_image(
         quote_text,
         author_text,
         canvas_width,
-        canvas_height
+        canvas_height,
+        font_path,
+        font_size
     )
 
     hpos = int(
@@ -1505,14 +1522,25 @@ def ensure_state():
 # ============================================================
 
 @app.get("/render-image")
-def render_image():
+def render_image(
+    font_path: str = None,
+    font_size: int = None
+):
 
     ensure_state()
+
+    if font_path:
+        STATE["font_path"] = font_path
+
+    if font_size:
+        STATE["font_size"] = font_size
 
     composite = generate_composite_image(
         STATE["current_image"],
         STATE["current_quote"],
         STATE["current_author"],
+        STATE["font_path"],
+        STATE["font_size"],
     )
 
     buf = io.BytesIO()
@@ -2620,10 +2648,21 @@ def index():
 
             }
 
-            fonts.forEach(
-                (
-                    fontPath
-                ) => {
+            fonts
+                .filter(
+                    (
+                        fontPath
+                    ) =>
+                        !fontPath
+                            .toLowerCase()
+                            .includes(
+                                'd050000l'
+                            )
+                )
+                .forEach(
+                    (
+                        fontPath
+                    ) => {
 
                     const item =
                         document.createElement(
@@ -2693,13 +2732,75 @@ def index():
 
                     item.onclick =
                         () => {
-
+                    
+                            selectedFont =
+                                fontPath;
+                    
+                            document
+                                .querySelectorAll(
+                                    '.font-item.selected'
+                                )
+                                .forEach(
+                                    (
+                                        selected
+                                    ) => {
+                    
+                                        selected
+                                            .classList
+                                            .remove(
+                                                'selected'
+                                            );
+                    
+                                    }
+                                );
+                    
+                            item.classList.add(
+                                'selected'
+                            );
+                    
+                            document
+                                .getElementById(
+                                    'selected-font'
+                                )
+                                .textContent =
+                                    name;
+                    
                             console.log(
                                 'Fuente seleccionada:',
                                 fontPath
                             );
-
+                    
                         };
+
+
+                        item.ondblclick =
+                            () => {
+                        
+                                if (!selectedFont) {
+                                    return;
+                                }
+                        
+                                const url =
+                                    '/render-image'
+                                    + '?font_path='
+                                    + encodeURIComponent(
+                                        selectedFont
+                                    )
+                                    + '&font_size='
+                                    + selectedFontSize;
+                        
+                                const wallpaper =
+                                    document.getElementById(
+                                        'wallpaper'
+                                    );
+                        
+                                wallpaper.src =
+                                    url
+                                    + '&t='
+                                    + Date.now();
+                        
+                            };
+
 
                     list.appendChild(
                         item
