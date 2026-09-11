@@ -1358,7 +1358,9 @@ def generate_composite_image(
         result
     )
 
-    text_fill, text_stroke = get_text_color(result)
+    text_fill, text_stroke = get_text_color(
+        bg_image
+    )
 
     text_x = (
         hpos
@@ -2667,7 +2669,7 @@ def index():
                     ) => {
         
                         preview.style.fontSize =
-                            selectedFontSize + 'px';
+                           '18px';
         
                     }
                 );
