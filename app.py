@@ -2641,54 +2641,64 @@ def index():
                             fontPath
                         );
 
+                    const fontId =
+                        'font_' +
+                        btoa(fontPath)
+                            .replace(
+                                /[^a-zA-Z0-9]/g,
+                                ''
+                            );
+                    
+                    const style =
+                        document.createElement(
+                            'style'
+                        );
+                    
+                    style.textContent =
+                        `
+                        @font-face {
+                    
+                            font-family: "${fontId}";
+                    
+                            src:
+                                url(
+                                    "/font-file?path=${encodeURIComponent(fontPath)}"
+                                );
+                    
+                        }
+                        `;
+                    
+                    document.head.appendChild(
+                        style
+                    );
+                    
                     item.innerHTML =
-                        '<strong>'
-                        + name
-                        + '</strong>'
+                        '<span class="font-preview">'
+                        + 'Aa — La vida es una experiencia'
+                        + '</span>'
                         + '<span class="font-name">'
-                        + fontPath
+                        + name
                         + '</span>';
+                    
+                    const preview =
+                        item.querySelector(
+                            '.font-preview'
+                        );
+                    
+                    preview.style.fontFamily =
+                        '"' + fontId + '"';
+                    
+                    preview.style.fontSize =
+                        selectedFontSize + 'px';
 
                     item.onclick =
                         () => {
-                    
-                            selectedFont =
-                                fontPath;
-                    
-                            document
-                                .querySelectorAll(
-                                    '.font-item.selected'
-                                )
-                                .forEach(
-                                    (
-                                        selected
-                                    ) => {
-                    
-                                        selected
-                                            .classList
-                                            .remove(
-                                                'selected'
-                                            );
-                    
-                                    }
-                                );
-                    
-                            item.classList.add(
-                                'selected'
-                            );
-                    
-                            document
-                                .getElementById(
-                                    'selected-font'
-                                )
-                                .textContent =
-                                    name;
-                    
+
                             console.log(
                                 'Fuente seleccionada:',
                                 fontPath
                             );
-                    
+
                         };
 
                     list.appendChild(
