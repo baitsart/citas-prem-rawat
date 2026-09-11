@@ -276,7 +276,7 @@ STATE = {
     "current_width": None,
     "current_height": None,
     "font_path": None,
-    "font_size": 30,
+    "font_size": 52,
 }
 
 
@@ -418,7 +418,7 @@ def procesar_evento(evento):
     lugar_fecha = None
 
     match_firma = re.search(
-        r"[\s–\-—]*Prem\s+Rawat(?:,\s*(.+))?$",
+        r"[\s–\-—]*Prem\s+Rawat(?:[.,]\s*(.+))?[.]?$",
         texto,
         flags=re.IGNORECASE
     )
@@ -1058,6 +1058,89 @@ def wrap_text(
 
     return lines
 
+def wrap_author_balanced(
+    text,
+    font,
+    max_width,
+    draw
+):
+
+    if not text:
+        return []
+
+    if text_width(
+        draw,
+        text,
+        font
+    ) <= max_width:
+
+        return [text]
+
+    words = text.split()
+
+    if len(words) < 2:
+
+        return [text]
+
+    mejor_corte = None
+    mejor_diferencia = None
+
+    for i in range(1, len(words)):
+
+        linea1 = " ".join(
+            words[:i]
+        )
+
+        linea2 = " ".join(
+            words[i:]
+        )
+
+        ancho1 = text_width(
+            draw,
+            linea1,
+            font
+        )
+
+        ancho2 = text_width(
+            draw,
+            linea2,
+            font
+        )
+
+        if (
+            ancho1 <= max_width
+            and ancho2 <= max_width
+        ):
+
+            diferencia = abs(
+                ancho1 - ancho2
+            )
+
+            if (
+                mejor_diferencia is None
+                or diferencia < mejor_diferencia
+            ):
+
+                mejor_diferencia = diferencia
+                mejor_corte = i
+
+    if mejor_corte is not None:
+
+        return [
+            " ".join(words[:mejor_corte]),
+            " ".join(words[mejor_corte:])
+        ]
+
+    # Si no entran dos renglones,
+    # dejamos que wrap_text haga
+    # el reparto necesario.
+
+    return wrap_text(
+        text,
+        font,
+        max_width,
+        draw
+    )
 
 # ============================================================
 # PREPARAR LAYOUT
@@ -1181,7 +1264,7 @@ def prepare_quote_layout(
             + author
         )
 
-        author_lines = wrap_text(
+        author_lines = wrap_author_balanced(
             author_text,
             font,
             box_width
@@ -2549,7 +2632,7 @@ def index():
         
         let selectedFont = null;
         
-        let selectedFontSize = 30;
+        let selectedFontSize = 52;
 
 
         function toggleFontSelector() {
