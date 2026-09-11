@@ -1926,6 +1926,142 @@ def index():
             opacity: 1;
         }
 
+        .font-selector {
+
+            position: relative;
+
+            display: inline-flex;
+
+            justify-content: center;
+
+            margin-bottom: 12px;
+
+        }
+
+        .font-panel {
+
+            display: none;
+
+            position: absolute;
+
+            z-index: 1000;
+
+            top: calc(100% + 8px);
+
+            left: 50%;
+
+            transform: translateX(-50%);
+
+            width: 360px;
+
+            max-width: 90vw;
+
+            background-color: #1e293b;
+
+            border: 1px solid #475569;
+
+            border-radius: 10px;
+
+            padding: 12px;
+
+            box-shadow:
+                0 20px 30px
+                rgba(0,0,0,0.45);
+
+        }
+
+        .font-panel.open {
+
+            display: block;
+
+        }
+
+        #font-search {
+
+            width: 100%;
+
+            padding: 10px 12px;
+
+            margin-bottom: 10px;
+
+            background-color: #0f172a;
+
+            color: #f8fafc;
+
+            border: 1px solid #475569;
+
+            border-radius: 7px;
+
+            font-size: 0.95rem;
+
+            outline: none;
+
+        }
+
+        #font-search:focus {
+
+            border-color: #3b82f6;
+
+        }
+
+        .font-list {
+
+            max-height: 300px;
+
+            overflow-y: auto;
+
+            display: flex;
+
+            flex-direction: column;
+
+            gap: 4px;
+
+        }
+
+        .font-item {
+
+            width: 100%;
+
+            padding: 10px 12px;
+
+            background: transparent;
+
+            color: #f8fafc;
+
+            border: 1px solid transparent;
+
+            border-radius: 7px;
+
+            cursor: pointer;
+
+            text-align: left;
+
+            transition:
+                background-color 0.15s ease,
+                border-color 0.15s ease;
+
+        }
+
+        .font-item:hover {
+
+            background-color: #334155;
+
+            border-color: #475569;
+
+        }
+
+        .font-name {
+
+            display: block;
+
+            font-size: 0.82rem;
+
+            color: #94a3b8;
+
+            margin-top: 3px;
+
+        }
+
         @media (max-width: 600px) {
 
             body {
@@ -1981,6 +2117,39 @@ def index():
                 Procesando...
             </div>
 
+        </div>
+
+        <div class="font-selector">
+        
+            <button
+                type="button"
+                id="font-selector-button"
+                onclick="toggleFontSelector()"
+            >
+                🔤 Tipografía
+            </button>
+        
+            <div
+                id="font-panel"
+                class="font-panel"
+            >
+        
+                <input
+                    type="text"
+                    id="font-search"
+                    placeholder="Buscar tipografía..."
+                    autocomplete="off"
+                >
+        
+                <div
+                    id="font-list"
+                    class="font-list"
+                >
+                    Cargando tipografías...
+                </div>
+        
+            </div>
+        
         </div>
 
         <div class="btn-group">
@@ -2153,12 +2322,207 @@ def index():
 
         }
 
+        // ====================================================
+        // SELECTOR DE TIPOGRAFÍAS
+        // ====================================================
+
+        let systemFonts = [];
+
+
+        function toggleFontSelector() {
+
+            const panel =
+                document.getElementById(
+                    'font-panel'
+                );
+
+            panel.classList.toggle(
+                'open'
+            );
+
+            if (
+                panel.classList.contains('open')
+            ) {
+
+                loadFonts();
+
+            }
+
+        }
+
+
+        async function loadFonts() {
+
+            const list =
+                document.getElementById(
+                    'font-list'
+                );
+
+            if (systemFonts.length > 0) {
+
+                renderFontList(
+                    systemFonts
+                );
+
+                return;
+
+            }
+
+            try {
+
+                const response =
+                    await fetch(
+                        '/fonts'
+                    );
+
+                const data =
+                    await response.json();
+
+                systemFonts =
+                    data.fonts || [];
+
+                renderFontList(
+                    systemFonts
+                );
+
+            } catch (error) {
+
+                list.innerHTML =
+                    'Error cargando las tipografías.';
+
+                console.error(
+                    error
+                );
+
+            }
+
+        }
+
+
+        function getFontName(path) {
+
+            const filename =
+                path.split('/').pop();
+
+            return filename
+                .replace(/\.(ttf|otf|ttc)$/i, '')
+                .replace(/[-_]/g, ' ');
+
+        }
+
+
+        function renderFontList(
+            fonts
+        ) {
+
+            const list =
+                document.getElementById(
+                    'font-list'
+                );
+
+            list.innerHTML = '';
+
+            if (!fonts.length) {
+
+                list.textContent =
+                    'No se encontraron tipografías.';
+
+                return;
+
+            }
+
+            fonts.forEach(
+                (
+                    fontPath
+                ) => {
+
+                    const item =
+                        document.createElement(
+                            'button'
+                        );
+
+                    item.type =
+                        'button';
+
+                    item.className =
+                        'font-item';
+
+                    const name =
+                        getFontName(
+                            fontPath
+                        );
+
+                    item.innerHTML =
+                        '<strong>'
+                        + name
+                        + '</strong>'
+                        + '<span class="font-name">'
+                        + fontPath
+                        + '</span>';
+
+                    item.onclick =
+                        () => {
+
+                            console.log(
+                                'Fuente seleccionada:',
+                                fontPath
+                            );
+
+                        };
+
+                    list.appendChild(
+                        item
+                    );
+
+                }
+            );
+
+        }
+
+
+        document
+            .getElementById(
+                'font-search'
+            )
+            .addEventListener(
+                'input',
+                function () {
+
+                    const search =
+                        this.value
+                            .toLowerCase()
+                            .trim();
+
+                    const filtered =
+                        systemFonts.filter(
+                            (
+                                fontPath
+                            ) => {
+
+                                return getFontName(
+                                    fontPath
+                                )
+                                .toLowerCase()
+                                .includes(
+                                    search
+                                );
+
+                            }
+                        );
+
+                    renderFontList(
+                        filtered
+                    );
+
+                }
+            );
     </script>
 
 </body>
 
 </html>
 """
+
 
 
 # ============================================================
