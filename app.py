@@ -7,9 +7,10 @@ import urllib.parse
 import urllib.request
 from html import unescape
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse, FileResponse
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -74,6 +75,21 @@ def fonts():
         "fonts": get_system_fonts()
     }
 
+@app.get("/font-file")
+def font_file(path: str):
+
+    font_path = Path(path)
+
+    if not str(font_path).startswith("/usr/share/fonts/"):
+        return {"error": "Fuente no permitida"}
+
+    if not font_path.is_file():
+        return {"error": "Fuente no encontrada"}
+
+    return FileResponse(
+        str(font_path)
+    )
+    
 # ============================================================
 # CONFIGURACIÓN GENERAL
 # ============================================================
@@ -1938,6 +1954,31 @@ def index():
 
         }
 
+        .font-selector-button {
+        
+            width: 82px;
+        
+            min-height: 58px;
+        
+            padding: 7px 8px;
+        
+            line-height: 1.05;
+        
+            text-align: center;
+        
+            font-size: 0.78rem;
+        
+            font-weight: 600;
+        
+            border-radius: 8px;
+        
+            background-color:
+                rgba(30, 41, 59, 0.88);
+        
+            backdrop-filter: blur(4px);
+        
+        }
+
         .font-panel {
 
             display: none;
@@ -1976,6 +2017,82 @@ def index():
 
             display: block;
 
+        }
+
+        .font-controls {
+        
+            margin-bottom: 12px;
+        
+            padding-bottom: 12px;
+        
+            border-bottom: 1px solid #475569;
+        
+        }
+        
+        .selected-font-name {
+        
+            font-size: 0.9rem;
+        
+            color: #cbd5e1;
+        
+            margin-bottom: 10px;
+        
+            white-space: nowrap;
+        
+            overflow: hidden;
+        
+            text-overflow: ellipsis;
+        
+        }
+        
+        .selected-font-name strong {
+        
+            color: #ffffff;
+        
+        }
+        
+        .font-size-control {
+        
+            display: flex;
+        
+            align-items: center;
+        
+            justify-content: space-between;
+        
+            gap: 8px;
+        
+            font-size: 0.85rem;
+        
+            color: #cbd5e1;
+        
+        }
+        
+        .font-size-button {
+        
+            width: 32px;
+        
+            height: 30px;
+        
+            padding: 0;
+        
+            font-size: 1.1rem;
+        
+            line-height: 1;
+        
+            border-radius: 6px;
+        
+        }
+        
+        .font-size-value {
+        
+            min-width: 55px;
+        
+            text-align: center;
+        
+            color: #ffffff;
+        
+            font-weight: 600;
+        
         }
 
         #font-search {
@@ -2021,47 +2138,75 @@ def index():
         }
 
         .font-item {
-
+        
             width: 100%;
-
+        
             padding: 10px 12px;
-
+        
             background: transparent;
-
+        
             color: #f8fafc;
-
+        
             border: 1px solid transparent;
-
+        
             border-radius: 7px;
-
+        
             cursor: pointer;
-
+        
             text-align: left;
-
+        
             transition:
                 background-color 0.15s ease,
                 border-color 0.15s ease;
-
+        
         }
-
+        
         .font-item:hover {
-
+        
             background-color: #334155;
-
+        
             border-color: #475569;
-
+        
         }
-
-        .font-name {
-
+        
+        .font-item.selected {
+        
+            background-color: #2563eb;
+        
+            border-color: #3b82f6;
+        
+        }
+        
+        .font-preview {
+        
             display: block;
-
+        
+            font-size: 1.15rem;
+        
+            line-height: 1.3;
+        
+            color: #ffffff;
+        
+            margin-bottom: 4px;
+        
+        }
+        
+        .font-name {
+        
+            display: block;
+        
             font-size: 0.82rem;
-
+        
             color: #94a3b8;
-
+        
             margin-top: 3px;
-
+        
+        }
+        
+        .font-item.selected .font-name {
+        
+            color: #dbeafe;
+        
         }
 
         @media (max-width: 600px) {
@@ -2124,16 +2269,54 @@ def index():
                 <button
                     type="button"
                     id="font-selector-button"
+                    class="font-selector-button"
                     onclick="toggleFontSelector()"
                 >
-                    🔤 Tipografía
+                    Más tipos<br>de letras
                 </button>
             
                 <div
                     id="font-panel"
                     class="font-panel"
                 >
-            
+                
+                    <div class="font-controls">
+                
+                        <div class="selected-font-name">
+                            Tipografía: <strong id="selected-font">Ninguna</strong>
+                        </div>
+                
+                        <div class="font-size-control">
+                
+                            <span>Tamaño:</span>
+                
+                            <button
+                                type="button"
+                                class="font-size-button"
+                                onclick="changeFontSize(-2)"
+                            >
+                                −
+                            </button>
+                
+                            <span
+                                id="font-size-value"
+                                class="font-size-value"
+                            >
+                                30 px
+                            </span>
+                
+                            <button
+                                type="button"
+                                class="font-size-button"
+                                onclick="changeFontSize(2)"
+                            >
+                                +
+                            </button>
+                
+                        </div>
+                
+                    </div>
+                
                     <input
                         type="text"
                         id="font-search"
@@ -2329,6 +2512,10 @@ def index():
         // ====================================================
 
         let systemFonts = [];
+        
+        let selectedFont = null;
+        
+        let selectedFontSize = 30;
 
 
         function toggleFontSelector() {
@@ -2464,12 +2651,44 @@ def index():
 
                     item.onclick =
                         () => {
-
+                    
+                            selectedFont =
+                                fontPath;
+                    
+                            document
+                                .querySelectorAll(
+                                    '.font-item.selected'
+                                )
+                                .forEach(
+                                    (
+                                        selected
+                                    ) => {
+                    
+                                        selected
+                                            .classList
+                                            .remove(
+                                                'selected'
+                                            );
+                    
+                                    }
+                                );
+                    
+                            item.classList.add(
+                                'selected'
+                            );
+                    
+                            document
+                                .getElementById(
+                                    'selected-font'
+                                )
+                                .textContent =
+                                    name;
+                    
                             console.log(
                                 'Fuente seleccionada:',
                                 fontPath
                             );
-
+                    
                         };
 
                     list.appendChild(
