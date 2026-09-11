@@ -52,6 +52,16 @@ def get_system_fonts():
 
     return fonts
 
+
+system_fonts = get_system_fonts()
+
+print(
+    f"INFO: Fuentes encontradas: {len(system_fonts)}"
+)
+
+for font in system_fonts:
+    print(font)
+    
 app = FastAPI(title="Generador de Citas y Wallpapers")
 
 
