@@ -62,15 +62,17 @@ print(
 for font in system_fonts:
     print(font)
 
+app = FastAPI(
+    title="Generador de Citas y Wallpapers"
+)
+
+
 @app.get("/fonts")
 def fonts():
 
     return {
         "fonts": get_system_fonts()
     }
-
-app = FastAPI(title="Generador de Citas y Wallpapers")
-
 
 # ============================================================
 # CONFIGURACIÓN GENERAL
