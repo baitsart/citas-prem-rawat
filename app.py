@@ -2628,6 +2628,52 @@ def index():
         }
 
 
+        function changeFontSize(
+            amount
+        ) {
+        
+            selectedFontSize += amount;
+        
+            if (
+                selectedFontSize < 12
+            ) {
+        
+                selectedFontSize = 12;
+        
+            }
+        
+            if (
+                selectedFontSize > 100
+            ) {
+        
+                selectedFontSize = 100;
+        
+            }
+        
+            document
+                .getElementById(
+                    'font-size-value'
+                )
+                .textContent =
+                    selectedFontSize + ' px';
+        
+            document
+                .querySelectorAll(
+                    '.font-preview'
+                )
+                .forEach(
+                    (
+                        preview
+                    ) => {
+        
+                        preview.style.fontSize =
+                            selectedFontSize + 'px';
+        
+                    }
+                );
+        
+        }
+
         function renderFontList(
             fonts
         ) {
