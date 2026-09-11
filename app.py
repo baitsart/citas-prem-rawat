@@ -13,6 +13,44 @@ from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 
 from PIL import Image, ImageDraw, ImageFont
 
+import os
+
+
+FONT_DIRECTORIES = [
+    "/usr/share/fonts",
+]
+
+
+def get_system_fonts():
+
+    fonts = []
+
+    for base_dir in FONT_DIRECTORIES:
+
+        if not os.path.isdir(base_dir):
+            continue
+
+        for root, dirs, files in os.walk(base_dir):
+
+            for filename in files:
+
+                if not filename.lower().endswith(
+                    (".ttf", ".otf", ".ttc")
+                ):
+                    continue
+
+                path = os.path.join(
+                    root,
+                    filename
+                )
+
+                fonts.append(path)
+
+    fonts.sort(
+        key=lambda path: os.path.basename(path).lower()
+    )
+
+    return fonts
 
 app = FastAPI(title="Generador de Citas y Wallpapers")
 
@@ -212,7 +250,7 @@ STATE = {
 def get_quote_font():
 
     candidates = [
-         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
@@ -616,7 +654,7 @@ def get_new_quote():
 
     if match:
 
-        texto = match.group(1)
+        texto = f"“{match.group(1)}”"
 
         autor = "Prem Rawat"
 
