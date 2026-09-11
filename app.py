@@ -1928,13 +1928,13 @@ def index():
 
         .font-selector {
 
-            position: relative;
+            position: absolute;
 
-            display: inline-flex;
+            top: 12px;
 
-            justify-content: center;
+            right: 12px;
 
-            margin-bottom: 12px;
+            z-index: 20;
 
         }
 
@@ -1948,9 +1948,11 @@ def index():
 
             top: calc(100% + 8px);
 
-            left: 50%;
+            right: 0;
 
-            transform: translateX(-50%);
+            left: auto;
+
+            transform: none;
 
             width: 360px;
 
@@ -2117,39 +2119,39 @@ def index():
                 Procesando...
             </div>
 
-        </div>
-
-        <div class="font-selector">
-        
-            <button
-                type="button"
-                id="font-selector-button"
-                onclick="toggleFontSelector()"
-            >
-                🔤 Tipografía
-            </button>
-        
-            <div
-                id="font-panel"
-                class="font-panel"
-            >
-        
-                <input
-                    type="text"
-                    id="font-search"
-                    placeholder="Buscar tipografía..."
-                    autocomplete="off"
+            <div class="font-selector">
+            
+                <button
+                    type="button"
+                    id="font-selector-button"
+                    onclick="toggleFontSelector()"
                 >
-        
+                    🔤 Tipografía
+                </button>
+            
                 <div
-                    id="font-list"
-                    class="font-list"
+                    id="font-panel"
+                    class="font-panel"
                 >
-                    Cargando tipografías...
+            
+                    <input
+                        type="text"
+                        id="font-search"
+                        placeholder="Buscar tipografía..."
+                        autocomplete="off"
+                    >
+            
+                    <div
+                        id="font-list"
+                        class="font-list"
+                    >
+                        Cargando tipografías...
+                    </div>
+            
                 </div>
-        
+            
             </div>
-        
+
         </div>
 
         <div class="btn-group">
