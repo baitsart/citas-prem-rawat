@@ -2294,6 +2294,8 @@ def index():
                 Procesando...
             </div>
 
+    </div>
+
             <div class="font-selector">
             
                 <button
@@ -2859,6 +2861,13 @@ def index():
 
         }
 
+        if (fontPath === selectedFont) {
+        
+            item.classList.add(
+                'selected'
+            );
+        
+        }
 
         document
             .getElementById(
