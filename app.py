@@ -2439,9 +2439,7 @@ def index():
             >
                 <span class="font-icon-text">Aa</span>
             </button>
-        </div>
-            
-                <div
+            <div
                     id="font-panel"
                     class="font-panel"
                 >
