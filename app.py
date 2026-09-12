@@ -74,7 +74,7 @@ app = FastAPI(
 def get_manifest():
     return JSONResponse({
         "name": "Citas de Prem Rawat",
-        "short_name": "Citas",
+        "short_name": "Citas de Prem",
         "start_url": "/",
         "scope": "/",
         "display": "standalone",
