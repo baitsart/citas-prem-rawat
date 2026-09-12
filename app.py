@@ -1182,7 +1182,7 @@ def prepare_quote_layout(
     canvas_width,
     canvas_height,
     font_path=None,
-    font_size=30
+    font_size=52
 ):
 
     if font_path:
@@ -1371,7 +1371,7 @@ def generate_composite_image(
     quote_text,
     author_text,
     font_path=None,
-    font_size=30
+    font_size=52
 ):
 
     canvas_width = bg_image.width
@@ -2109,28 +2109,32 @@ def index():
         }
 
         .font-selector-button {
-        
-            width: 82px;
-        
-            min-height: 58px;
-        
-            padding: 7px 8px;
-        
-            line-height: 1.05;
-        
-            text-align: center;
-        
-            font-size: 0.78rem;
-        
-            font-weight: 600;
-        
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            padding: 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 8px;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
         
-            background-color:
-                rgba(30, 41, 59, 0.88);
+        .font-selector-button:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
         
-            backdrop-filter: blur(4px);
-        
+        /* Estilo del texto 'Aa' interior */
+        .font-icon-text {
+            font-family: 'Georgia', serif;
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: -1px;
         }
 
         .font-panel {
@@ -2420,16 +2424,17 @@ def index():
 
     </div>
 
-            <div class="font-selector">
-            
-                <button
-                    type="button"
-                    id="font-selector-button"
-                    class="font-selector-button"
-                    onclick="toggleFontSelector()"
-                >
-                    🔠🔡
-                </button>
+        <div class="font-selector">
+            <button
+                type="button"
+                id="font-selector-button"
+                class="font-selector-button"
+                onclick="toggleFontSelector()"
+                title="Cambiar tipografía"
+            >
+                <span class="font-icon-text">Aa</span>
+            </button>
+        </div>
             
                 <div
                     id="font-panel"
