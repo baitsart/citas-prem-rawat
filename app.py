@@ -2157,6 +2157,11 @@ def index():
 
             max-width: 90vw;
 
+            /* Nombramos un límite vertical con scroll interno */
+            max-height: 60vh;
+
+            overflow-y: auto;
+
             background-color: #1e293b;
 
             border: 1px solid #475569;
@@ -2463,7 +2468,7 @@ def index():
                                 id="font-size-value"
                                 class="font-size-value"
                             >
-                                30 px
+                                52 px
                             </span>
                 
                             <button
