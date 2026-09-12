@@ -65,6 +65,11 @@ print(
 for font in system_fonts:
     print(font)
 
+app = FastAPI(
+    title="Generador de Citas y Wallpapers"
+)
+
+
 @app.get("/manifest.json")
 def get_manifest():
     return JSONResponse({
@@ -90,9 +95,6 @@ if not os.path.exists("static"):
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-app = FastAPI(
-    title="Generador de Citas y Wallpapers"
-)
 
 @app.get("/fonts")
 def fonts():
