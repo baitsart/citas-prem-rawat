@@ -76,6 +76,7 @@ def get_manifest():
         "name": "Citas de Prem Rawat",
         "short_name": "Citas",
         "start_url": "/",
+        "scope": "/",
         "display": "standalone",
         "background_color": "#0f172a",
         "theme_color": "#0f172a",
@@ -83,7 +84,8 @@ def get_manifest():
             {
                 "src": "/static/icon.png",
                 "sizes": "512x512",
-                "type": "image/png"
+                "type": "image/png",
+                "purpose": "any maskable"
             }
         ]
     })
@@ -1859,10 +1861,14 @@ def index():
 
     <meta charset="UTF-8">
 
-<!-- Configuración del lanzador e icono para la app -->
+    <!-- Configuración del lanzador e icono para la app -->
     <link rel="manifest" href="/manifest.json">
     <link rel="icon" type="image/png" sizes="512x512" href="/static/icon.png">
-    <link rel="apple-touch-icon" href="/static/icon.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="/static/icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0f172a">
 
     <meta
         name="viewport"
