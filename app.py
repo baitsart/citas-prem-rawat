@@ -11,6 +11,8 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -63,10 +65,34 @@ print(
 for font in system_fonts:
     print(font)
 
+@app.get("/manifest.json")
+def get_manifest():
+    return JSONResponse({
+        "name": "Citas de Prem Rawat",
+        "short_name": "Citas",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#0f172a",
+        "theme_color": "#0f172a",
+        "icons": [
+            {
+                "src": "/static/icon.png",
+                "sizes": "512x512",
+                "type": "image/png"
+            }
+        ]
+    })
+
+# Asegurarse de tener una carpeta llamada 'static' en la misma ubicación que app_2.py
+# y montar la ruta estática:
+if not os.path.exists("static"):
+    os.makedirs("static", exist_ok=True)
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 app = FastAPI(
     title="Generador de Citas y Wallpapers"
 )
-
 
 @app.get("/fonts")
 def fonts():
@@ -1830,6 +1856,11 @@ def index():
 <head>
 
     <meta charset="UTF-8">
+
+<!-- Configuración del lanzador e icono para la app -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" sizes="512x512" href="/static/icon.png">
+    <link rel="apple-touch-icon" href="/static/icon.png">
 
     <meta
         name="viewport"
