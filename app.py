@@ -2518,21 +2518,20 @@ def index():
             >
                 🔀 Cambiar ambas
             </button>
-
-            <a
-                href="/download"
+            
+            <button            
+                onclick="downloadFile('/download', 'cita')"
                 class="btn primary"
-                target="_blank"
-            >
+            >   
                 📥 Descargar
-            </a>
+            </button>
 
-            <a
-                href="/download-image"
+            <button
+                onclick="downloadFile('/download-image', 'wallpaper')"
                 class="btn"
             >
                 📥 Descargar solo la imagen
-            </a>
+            </button>
 
             <button
                 onclick="
@@ -2558,6 +2557,33 @@ def index():
         // ====================================================
         // CAMBIAR IMAGEN / CITA / AMBAS
         // ====================================================
+        
+        async function downloadFile(endpoint, baseName) {
+            try {
+                const response = await fetch(endpoint);
+                if (!response.ok) throw new Error('Error en la descarga');
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                
+                // Generar un sello de fecha/hora único (ej: 2026-09-12_09-55-10)
+                const now = new Date();
+                const timestamp = now.toISOString().replace(/T/, '_').replace(/:/g, '-').slice(0, 19);
+                const uniqueFilename = `${baseName}_${timestamp}.jpg`;
+
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = uniqueFilename;
+                document.body.appendChild(a);
+                a.click();
+                
+                window.URL.revokeObjectURL(url);
+                a.remove();
+            } catch (error) {
+                alert('No se pudo completar la descarga.');
+            }
+        }
 
         async function triggerAction(
             actionType
