@@ -509,7 +509,13 @@ def load_all_quotes():
     # Eliminar duplicados conservando orden
     # --------------------------------------------------------
 
-    citas_unicas = list(dict.fromkeys(citas))
+        citas_unicas = []
+        vistas = set()
+        for c in citas:
+            clave = c['quote'] if isinstance(c, dict) else c
+            if clave not in vistas:
+                vistas.add(clave)
+                citas_unicas.append(c)
 
     if citas_unicas:
 
@@ -542,15 +548,16 @@ def get_new_quote():
         STATE["current_quote_url"] = "https://www.timelesstoday.tv/es"
         return random.choice(CITAS_MEMORIA)
 
-    # Si guardas tuplas con (texto, autor, url_evento) en ALL_QUOTES:
     item = random.choice(ALL_QUOTES)
-    
-    # Supongamos que el item incluye la URL o la ruta pública
-    # Si guardaste la estructura completa:
-    quote, url_evento = item["quote"], item.get("url", "https://www.timelesstoday.tv/es")
-    
-    STATE["current_quote_url"] = url_evento
-    
+
+    # Si item es un diccionario con la URL
+    if isinstance(item, dict):
+        quote = item.get("quote", "")
+        STATE["current_quote_url"] = item.get("url", "https://www.timelesstoday.tv/es")
+    else:
+        quote = item
+        STATE["current_quote_url"] = "https://www.timelesstoday.tv/es"
+
     match = re.match(
         r"^“(.*)”\s+—\s+Prem\s+Rawat(?:,\s*(.*))?$", quote, flags=re.DOTALL
     )
@@ -2527,24 +2534,16 @@ def index():
                 const response = await fetch('/api/current-metadata');
                 if (!response.ok) return;
                 const data = await response.json();
-        
+
                 const quoteLink = document.getElementById('info-quote-url');
                 const imageLink = document.getElementById('info-image-url');
-        
+
                 if (quoteLink) {
                     quoteLink.href = data.quote_url;
-                    // Muestra la URL escrita completa para capturas de pantalla
-                    quoteLink.textContent = data.quote_url;
+                    quoteLink.textContent = data.quote_url.includes('/media/') 
+                        ? 'Ver cita en Timeless Today ↗' 
+                        : 'Timeless Today';
                 }
-        
-                if (imageLink) {
-                    imageLink.href = data.image_url;
-                    imageLink.textContent = data.image_url;
-                }
-            } catch (e) {
-                console.error("Error al actualizar metadatos:", e);
-            }
-        }
 
                 if (imageLink) {
                     imageLink.href = data.image_url;
