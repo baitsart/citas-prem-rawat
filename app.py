@@ -10,14 +10,16 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse, FileResponse
+from fastapi.responses import (
+    HTMLResponse,
+    StreamingResponse,
+    JSONResponse,
+    FileResponse,
+)
 from fastapi.staticfiles import StaticFiles
 
 
 from PIL import Image, ImageDraw, ImageFont
-
-import os
-
 
 FONT_DIRECTORIES = [
     "/usr/share/fonts",
@@ -37,58 +39,50 @@ def get_system_fonts():
 
             for filename in files:
 
-                if not filename.lower().endswith(
-                    (".ttf", ".otf", ".ttc")
-                ):
+                if not filename.lower().endswith((".ttf", ".otf", ".ttc")):
                     continue
 
-                path = os.path.join(
-                    root,
-                    filename
-                )
+                path = os.path.join(root, filename)
 
                 fonts.append(path)
 
-    fonts.sort(
-        key=lambda path: os.path.basename(path).lower()
-    )
+    fonts.sort(key=lambda path: os.path.basename(path).lower())
 
     return fonts
 
 
 system_fonts = get_system_fonts()
 
-print(
-    f"INFO: Fuentes encontradas: {len(system_fonts)}"
-)
+print(f"INFO: Fuentes encontradas: {len(system_fonts)}")
 
 for font in system_fonts:
     print(font)
 
-app = FastAPI(
-    title="Generador de Citas y Wallpapers"
-)
+app = FastAPI(title="Generador de Citas y Wallpapers")
 
 
 @app.get("/manifest.json")
 def get_manifest():
-    return JSONResponse({
-        "name": "Citas de Prem Rawat",
-        "short_name": "Citas de Prem",
-        "start_url": "/",
-        "scope": "/",
-        "display": "standalone",
-        "background_color": "#0f172a",
-        "theme_color": "#0f172a",
-        "icons": [
-            {
-                "src": "/static/icon.png",
-                "sizes": "512x512",
-                "type": "image/png",
-                "purpose": "any maskable"
-            }
-        ]
-    })
+    return JSONResponse(
+        {
+            "name": "Citas de Prem Rawat",
+            "short_name": "Citas de Prem",
+            "start_url": "/",
+            "scope": "/",
+            "display": "standalone",
+            "background_color": "#0f172a",
+            "theme_color": "#0f172a",
+            "icons": [
+                {
+                    "src": "/static/icon.png",
+                    "sizes": "512x512",
+                    "type": "image/png",
+                    "purpose": "any maskable",
+                }
+            ],
+        }
+    )
+
 
 # Asegurarse de tener una carpeta llamada 'static' en la misma ubicación que app_2.py
 # y montar la ruta estática:
@@ -98,12 +92,22 @@ if not os.path.exists("static"):
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
+@app.get("/api/current-metadata")
+def get_current_metadata():
+    ensure_state()
+    return JSONResponse(
+        {
+            "quote_url": STATE.get("current_quote_url", "https://www.timelesstoday.tv"),
+            "image_url": STATE.get("current_image_url", "https://wallhaven.cc"),
+        }
+    )
+
+
 @app.get("/fonts")
 def fonts():
 
-    return {
-        "fonts": get_system_fonts()
-    }
+    return {"fonts": get_system_fonts()}
+
 
 @app.get("/font-file")
 def font_file(path: str):
@@ -116,10 +120,9 @@ def font_file(path: str):
     if not font_path.is_file():
         return {"error": "Fuente no encontrada"}
 
-    return FileResponse(
-        str(font_path)
-    )
-    
+    return FileResponse(str(font_path))
+
+
 # ============================================================
 # CONFIGURACIÓN GENERAL
 # ============================================================
@@ -127,8 +130,7 @@ def font_file(path: str):
 BASE_SIZE = 1920
 
 WALLHAVEN_API_KEY = os.environ.get(
-    "WALLHAVEN_API_KEY",
-    "jJm5diseSPiDVIqvvE7aUS4fWwgJ0koW"
+    "WALLHAVEN_API_KEY", "jJm5diseSPiDVIqvvE7aUS4fWwgJ0koW"
 )
 
 WALLHAVEN_TAGS = [
@@ -162,12 +164,9 @@ USER_AGENT = (
 # Después se mantienen en memoria.
 # ============================================================
 
-API_BASE = (
-    "https://api3.timelesstoday.io/"
-    "v2/cms/products/es-ES/group/2/12"
-)
+API_BASE = "https://api3.timelesstoday.io/" "v2/cms/products/es-ES/group/2/12"
 
-TIMESLESS_LIMIT = 12
+TIMELESS_LIMIT = 12
 
 
 # ============================================================
@@ -205,29 +204,19 @@ ASPECT_RATIOS = [
 
 def get_random_dimensions():
 
-    ratio_w, ratio_h = random.choice(
-        ASPECT_RATIOS
-    )
+    ratio_w, ratio_h = random.choice(ASPECT_RATIOS)
 
     if ratio_w >= ratio_h:
 
         width = BASE_SIZE
 
-        height = int(
-            BASE_SIZE
-            * ratio_h
-            / ratio_w
-        )
+        height = int(BASE_SIZE * ratio_h / ratio_w)
 
     else:
 
         height = BASE_SIZE
 
-        width = int(
-            BASE_SIZE
-            * ratio_w
-            / ratio_h
-        )
+        width = int(BASE_SIZE * ratio_w / ratio_h)
 
     return width, height
 
@@ -238,7 +227,7 @@ def get_random_dimensions():
 # Basados en cita-variety.py
 # ============================================================
 
-FONT_SIZE = 42
+FONT_SIZE = 52
 
 BG_OPACITY = 55
 
@@ -307,12 +296,15 @@ STATE = {
     "current_height": None,
     "font_path": None,
     "font_size": 52,
+    "current_quote_url": "https://www.timelesstoday.tv",
+    "current_image_url": "https://wallhaven.cc",
 }
 
 
 # ============================================================
 # FUENTE
 # ============================================================
+
 
 def get_quote_font():
 
@@ -328,10 +320,7 @@ def get_quote_font():
 
         try:
 
-            return ImageFont.truetype(
-                filename,
-                FONT_SIZE
-            )
+            return ImageFont.truetype(filename, FONT_SIZE)
 
         except OSError:
 
@@ -344,19 +333,12 @@ def get_quote_font():
 # DESCARGAR BYTES
 # ============================================================
 
+
 def get_image_bytes(url):
 
-    req = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": USER_AGENT
-        }
-    )
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
 
-    with urllib.request.urlopen(
-        req,
-        timeout=15
-    ) as resp:
+    with urllib.request.urlopen(req, timeout=15) as resp:
 
         return resp.read()
 
@@ -365,6 +347,7 @@ def get_image_bytes(url):
 # TIMELESS TODAY
 # HACER PETICIÓN
 # ============================================================
+
 
 def hacer_peticion(offset):
 
@@ -377,28 +360,17 @@ def hacer_peticion(offset):
         "Origin": "https://timelesstoday.tv",
     }
 
-    req = urllib.request.Request(
-        url,
-        headers=headers
-    )
+    req = urllib.request.Request(url, headers=headers)
 
     try:
 
-        with urllib.request.urlopen(
-            req,
-            timeout=15
-        ) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:
 
-            return json.loads(
-                resp.read().decode("utf-8")
-            )
+            return json.loads(resp.read().decode("utf-8"))
 
     except Exception as e:
 
-        print(
-            "ERROR TimelessToday:",
-            e
-        )
+        print("ERROR TimelessToday:", e)
 
         return None
 
@@ -410,11 +382,10 @@ def hacer_peticion(offset):
 # citas_timelesstoday.py
 # ============================================================
 
+
 def procesar_evento(evento):
 
-    raw_cita = evento.get(
-        "tt_one_line_quote"
-    )
+    raw_cita = evento.get("tt_one_line_quote")
 
     if not raw_cita:
 
@@ -424,21 +395,11 @@ def procesar_evento(evento):
     # 1. Limpieza inicial de HTML y espacios
     # --------------------------------------------------------
 
-    texto = unescape(
-        str(raw_cita)
-    )
+    texto = unescape(str(raw_cita))
 
-    texto = re.sub(
-        r"<[^>]+>",
-        "",
-        texto
-    )
+    texto = re.sub(r"<[^>]+>", "", texto)
 
-    texto = re.sub(
-        r"\s+",
-        " ",
-        texto
-    ).strip()
+    texto = re.sub(r"\s+", " ", texto).strip()
 
     # --------------------------------------------------------
     # 2. Extraer "Prem Rawat" y fecha/lugar si vienen
@@ -448,23 +409,16 @@ def procesar_evento(evento):
     lugar_fecha = None
 
     match_firma = re.search(
-        r"[\s–\-—]*Prem\s+Rawat(?:[.,]\s*(.+))?[.]?$",
-        texto,
-        flags=re.IGNORECASE
+        r"[\s–\-—]*Prem\s+Rawat(?:[.,]\s*(.+))?[.]?$", texto, flags=re.IGNORECASE
     )
 
     if match_firma:
 
-        texto = texto[
-            :match_firma.start()
-        ].strip()
+        texto = texto[: match_firma.start()].strip()
 
         if match_firma.group(1):
 
-            lugar_fecha = (
-                match_firma.group(1)
-                .strip()
-            )
+            lugar_fecha = match_firma.group(1).strip()
 
     # --------------------------------------------------------
     # 3. Si no venía fecha/lugar dentro del texto,
@@ -473,45 +427,25 @@ def procesar_evento(evento):
 
     if not lugar_fecha:
 
-        nombre_evento = evento.get(
-            "tt_name"
-        )
+        nombre_evento = evento.get("tt_name")
 
-        if (
-            nombre_evento
-            and nombre_evento.strip()
-        ):
+        if nombre_evento and nombre_evento.strip():
 
-            lugar_fecha = (
-                nombre_evento.strip()
-            )
+            lugar_fecha = nombre_evento.strip()
 
     # --------------------------------------------------------
     # 4. Limpiar comillas basura
     # --------------------------------------------------------
 
-    texto = re.sub(
-        r'^["“”’\']+|["“”’\']+$',
-        "",
-        texto
-    ).strip()
+    texto = re.sub(r'^["“”’\']+|["“”’\']+$', "", texto).strip()
 
-    texto = re.sub(
-        r'["”’\']+\s*\.?$',
-        "",
-        texto
-    ).strip()
+    texto = re.sub(r'["”’\']+\s*\.?$', "", texto).strip()
 
     # --------------------------------------------------------
     # Asegurar punto final
     # --------------------------------------------------------
 
-    if (
-        texto
-        and not texto.endswith(
-            (".", "!", "?", "…")
-        )
-    ):
+    if texto and not texto.endswith((".", "!", "?", "…")):
 
         texto += "."
 
@@ -525,26 +459,15 @@ def procesar_evento(evento):
 
     if lugar_fecha:
 
-        lugar_fecha = re.sub(
-            r'^["“”’\']+|["“”’\']+$',
-            "",
-            lugar_fecha
-        ).strip()
+        lugar_fecha = re.sub(r'^["“”’\']+|["“”’\']+$', "", lugar_fecha).strip()
 
-        lugar_fecha = (
-            lugar_fecha.rstrip(".")
-        )
+        lugar_fecha = lugar_fecha.rstrip(".")
 
-        return (
-            f'“{texto}” — Prem Rawat, '
-            f'({lugar_fecha})'
-        )
+        return f"“{texto}” — Prem Rawat, " f"({lugar_fecha})"
 
     else:
 
-        return (
-            f'“{texto}” — Prem Rawat'
-        )
+        return f"“{texto}” — Prem Rawat"
 
 
 # ============================================================
@@ -553,60 +476,36 @@ def procesar_evento(evento):
 # Esta función se ejecuta solamente al iniciar la aplicación.
 # ============================================================
 
+
 def load_all_quotes():
 
     global ALL_QUOTES
 
-    print(
-        "INFO: Cargando citas de TimelessToday..."
-    )
+    print("INFO: Cargando citas de TimelessToday...")
 
     primera_pagina = hacer_peticion(0)
 
     if not primera_pagina:
 
-        print(
-            "WARNING: No se pudo obtener "
-            "la primera página de TimelessToday."
-        )
+        print("WARNING: No se pudo obtener " "la primera página de TimelessToday.")
 
-        ALL_QUOTES = list(
-            CITAS_MEMORIA
-        )
+        ALL_QUOTES = list(CITAS_MEMORIA)
 
         return
 
-    total_eventos = (
-        primera_pagina
-        .get("filter", {})
-        .get("count", 0)
-    )
+    total_eventos = primera_pagina.get("filter", {}).get("count", 0)
 
     if total_eventos == 0:
 
-        print(
-            "WARNING: TimelessToday "
-            "no devolvió eventos."
-        )
+        print("WARNING: TimelessToday " "no devolvió eventos.")
 
-        ALL_QUOTES = list(
-            CITAS_MEMORIA
-        )
+        ALL_QUOTES = list(CITAS_MEMORIA)
 
         return
 
-    print(
-        f"INFO: TimelessToday informa "
-        f"{total_eventos} eventos."
-    )
+    print(f"INFO: TimelessToday informa " f"{total_eventos} eventos.")
 
-    offsets = list(
-        range(
-            0,
-            total_eventos,
-            TIMESLESS_LIMIT
-        )
-    )
+    offsets = list(range(0, total_eventos, TIMELESS_LIMIT))
 
     citas = []
 
@@ -622,63 +521,41 @@ def load_all_quotes():
 
         else:
 
-            datos = hacer_peticion(
-                offset
-            )
+            datos = hacer_peticion(offset)
 
         if not datos:
 
-            print(
-                f"WARNING: No se pudo cargar "
-                f"offset {offset}."
-            )
+            print(f"WARNING: No se pudo cargar " f"offset {offset}.")
 
             continue
 
-        eventos = datos.get(
-            "data",
-            []
-        )
+        eventos = datos.get("data", [])
 
         for evento in eventos:
 
-            cita = procesar_evento(
-                evento
-            )
+            cita = procesar_evento(evento)
 
             if cita:
 
-                citas.append(
-                    cita
-                )
+                citas.append(cita)
 
     # --------------------------------------------------------
     # Eliminar duplicados conservando orden
     # --------------------------------------------------------
 
-    citas_unicas = list(
-        dict.fromkeys(citas)
-    )
+    citas_unicas = list(dict.fromkeys(citas))
 
     if citas_unicas:
 
         ALL_QUOTES = citas_unicas
 
-        print(
-            "INFO: Citas cargadas: "
-            f"{len(ALL_QUOTES)}"
-        )
+        print("INFO: Citas cargadas: " f"{len(ALL_QUOTES)}")
 
     else:
 
-        print(
-            "WARNING: No se pudo procesar "
-            "ninguna cita de TimelessToday."
-        )
+        print("WARNING: No se pudo procesar " "ninguna cita de TimelessToday.")
 
-        ALL_QUOTES = list(
-            CITAS_MEMORIA
-        )
+        ALL_QUOTES = list(CITAS_MEMORIA)
 
 
 # ============================================================
@@ -692,17 +569,14 @@ def load_all_quotes():
 # cargadas al iniciar la aplicación.
 # ============================================================
 
+
 def get_new_quote():
 
     if not ALL_QUOTES:
 
-        return random.choice(
-            CITAS_MEMORIA
-        )
+        return random.choice(CITAS_MEMORIA)
 
-    quote = random.choice(
-        ALL_QUOTES
-    )
+    quote = random.choice(ALL_QUOTES)
 
     # --------------------------------------------------------
     # Las citas de TimelessToday ya vienen completas como:
@@ -714,9 +588,7 @@ def get_new_quote():
     # --------------------------------------------------------
 
     match = re.match(
-        r'^“(.*)”\s+—\s+Prem\s+Rawat(?:,\s*(.*))?$',
-        quote,
-        flags=re.DOTALL
+        r"^“(.*)”\s+—\s+Prem\s+Rawat(?:,\s*(.*))?$", quote, flags=re.DOTALL
     )
 
     if match:
@@ -729,42 +601,36 @@ def get_new_quote():
 
             autor += ", " + match.group(2)
 
-        return (
-            texto,
-            autor
-        )
+        return (texto, autor)
 
     # --------------------------------------------------------
     # Respaldo por si alguna cita no coincide con el formato.
     # --------------------------------------------------------
 
-    return (
-        quote,
-        "Prem Rawat"
-    )
+    return (quote, "Prem Rawat")
 
 
 # ============================================================
 # WALLHAVEN
 # ============================================================
 
+
 def get_wallhaven_wallpaper():
     tag = random.choice(WALLHAVEN_TAGS)
 
-    query = urllib.parse.urlencode({
-        "q": tag,
-        "apikey": WALLHAVEN_API_KEY,
-        "sorting": "random",
-        "purity": "100",
-        "categories": "100",
-    })
+    query = urllib.parse.urlencode(
+        {
+            "q": tag,
+            "apikey": WALLHAVEN_API_KEY,
+            "sorting": "random",
+            "purity": "100",
+            "categories": "100",
+        }
+    )
 
     api_url = "https://wallhaven.cc/api/v1/search?" + query
 
-    req = urllib.request.Request(
-        api_url,
-        headers={"User-Agent": USER_AGENT}
-    )
+    req = urllib.request.Request(api_url, headers={"User-Agent": USER_AGENT})
 
     with urllib.request.urlopen(req, timeout=10) as resp:
         data = json.loads(resp.read().decode("utf-8"))
@@ -776,8 +642,7 @@ def get_wallhaven_wallpaper():
 
     # Preferir imágenes que no hayan aparecido recientemente.
     disponibles = [
-        item for item in results
-        if item.get("id") not in RECENT_WALLHAVEN_IDS
+        item for item in results if item.get("id") not in RECENT_WALLHAVEN_IDS
     ]
 
     if not disponibles:
@@ -791,9 +656,7 @@ def get_wallhaven_wallpaper():
         RECENT_WALLHAVEN_IDS.append(wallpaper_id)
 
         if len(RECENT_WALLHAVEN_IDS) > MAX_RECENT_WALLHAVEN:
-            del RECENT_WALLHAVEN_IDS[
-                :len(RECENT_WALLHAVEN_IDS) - MAX_RECENT_WALLHAVEN
-            ]
+            del RECENT_WALLHAVEN_IDS[: len(RECENT_WALLHAVEN_IDS) - MAX_RECENT_WALLHAVEN]
 
     return get_image_bytes(elegido["path"])
 
@@ -802,8 +665,8 @@ def get_wallhaven_wallpaper():
 # BING
 # ============================================================
 
-def get_bing_wallpaper():
 
+def get_bing_wallpaper():
     url = (
         "https://www.bing.com/"
         "HPImageArchive.aspx?"
@@ -813,30 +676,13 @@ def get_bing_wallpaper():
         "mkt=en-US"
     )
 
-    req = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": USER_AGENT
-        }
-    )
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
 
-    with urllib.request.urlopen(
-        req,
-        timeout=10
-    ) as resp:
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+        img_url = "https://www.bing.com" + data["images"][0]["url"]
 
-        data = json.loads(
-            resp.read().decode("utf-8")
-        )
-
-        img_url = (
-            "https://www.bing.com"
-            + data["images"][0]["url"]
-        )
-
-        return get_image_bytes(
-            img_url
-        )
+        return get_image_bytes(img_url), img_url
 
 
 # ============================================================
@@ -845,75 +691,36 @@ def get_bing_wallpaper():
 # NO deforma la imagen.
 # ============================================================
 
-def fit_wallpaper(
-    image,
-    target_width,
-    target_height
-):
 
-    image = image.convert(
-        "RGB"
-    )
+def fit_wallpaper(image, target_width, target_height):
+
+    image = image.convert("RGB")
 
     iw, ih = image.size
 
     source_ratio = iw / ih
 
-    target_ratio = (
-        target_width
-        / target_height
-    )
+    target_ratio = target_width / target_height
 
     if source_ratio > target_ratio:
 
         new_height = target_height
 
-        new_width = int(
-            target_height
-            * source_ratio
-        )
+        new_width = int(target_height * source_ratio)
 
     else:
 
         new_width = target_width
 
-        new_height = int(
-            target_width
-            / source_ratio
-        )
+        new_height = int(target_width / source_ratio)
 
-    image = image.resize(
-        (
-            new_width,
-            new_height
-        ),
-        Image.Resampling.LANCZOS
-    )
+    image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-    left = max(
-        0,
-        (
-            new_width
-            - target_width
-        ) // 2
-    )
+    left = max(0, (new_width - target_width) // 2)
 
-    top = max(
-        0,
-        (
-            new_height
-            - target_height
-        ) // 2
-    )
+    top = max(0, (new_height - target_height) // 2)
 
-    image = image.crop(
-        (
-            left,
-            top,
-            left + target_width,
-            top + target_height
-        )
-    )
+    image = image.crop((left, top, left + target_width, top + target_height))
 
     return image
 
@@ -922,54 +729,37 @@ def fit_wallpaper(
 # OBTENER WALLPAPER ALEATORIO
 # ============================================================
 
+
 def fetch_random_background():
     target_width, target_height = get_random_dimensions()
 
-    # Wallhaven es la fuente principal.
+    # 1. Intentar con Wallhaven
     try:
-        img_data = get_wallhaven_wallpaper()
+        img_data, img_url = get_wallhaven_wallpaper()
+        img = Image.open(io.BytesIO(img_data)).convert("RGB")
+        img = fit_wallpaper(img, target_width, target_height)
 
-        img = Image.open(
-            io.BytesIO(img_data)
-        ).convert("RGB")
-
-        img = fit_wallpaper(
-            img,
-            target_width,
-            target_height
-        )
-
+        STATE["current_image_url"] = img_url
         return img, target_width, target_height
 
     except Exception:
         pass
 
-    # Bing queda solamente como respaldo.
+    # 2. Respaldo con Bing Images
     try:
-        img_data = get_bing_wallpaper()
+        img_data, img_url = get_bing_wallpaper()
+        img = Image.open(io.BytesIO(img_data)).convert("RGB")
+        img = fit_wallpaper(img, target_width, target_height)
 
-        img = Image.open(
-            io.BytesIO(img_data)
-        ).convert("RGB")
-
-        img = fit_wallpaper(
-            img,
-            target_width,
-            target_height
-        )
-
+        STATE["current_image_url"] = img_url
         return img, target_width, target_height
 
     except Exception:
         pass
 
-    # Último respaldo.
-    img = Image.new(
-        "RGB",
-        (target_width, target_height),
-        color=(40, 50, 60)
-    )
-
+    # 3. Respaldo en caso de fallo total
+    img = Image.new("RGB", (target_width, target_height), color=(40, 50, 60))
+    STATE["current_image_url"] = "https://www.bing.com"
     return img, target_width, target_height
 
 
@@ -977,70 +767,39 @@ def fetch_random_background():
 # COLOR REPRESENTATIVO
 # ============================================================
 
-def get_image_representative_color(
-    image
-):
 
-    small_img = image.resize(
-        (1, 1),
-        Image.Resampling.LANCZOS
-    )
+def get_image_representative_color(image):
 
-    return small_img.getpixel(
-        (0, 0)
-    )
+    small_img = image.resize((1, 1), Image.Resampling.LANCZOS)
+
+    return small_img.getpixel((0, 0))
 
 
 # ============================================================
 # MEDICIÓN DE TEXTO
 # ============================================================
 
-def text_width(
-    draw,
-    text,
-    font
-):
 
-    bbox = draw.textbbox(
-        (0, 0),
-        text,
-        font=font
-    )
+def text_width(draw, text, font):
 
-    return (
-        bbox[2]
-        - bbox[0]
-    )
+    bbox = draw.textbbox((0, 0), text, font=font)
+
+    return bbox[2] - bbox[0]
 
 
-def text_height(
-    draw,
-    text,
-    font
-):
+def text_height(draw, text, font):
 
-    bbox = draw.textbbox(
-        (0, 0),
-        text,
-        font=font
-    )
+    bbox = draw.textbbox((0, 0), text, font=font)
 
-    return (
-        bbox[3]
-        - bbox[1]
-    )
+    return bbox[3] - bbox[1]
 
 
 # ============================================================
 # WRAP DE TEXTO
 # ============================================================
 
-def wrap_text(
-    text,
-    font,
-    max_width,
-    draw
-):
+
+def wrap_text(text, font, max_width, draw):
 
     words = text.split()
 
@@ -1056,17 +815,9 @@ def wrap_text(
 
         else:
 
-            test = (
-                current
-                + " "
-                + word
-            )
+            test = current + " " + word
 
-        if text_width(
-            draw,
-            test,
-            font
-        ) <= max_width:
+        if text_width(draw, test, font) <= max_width:
 
             current = test
 
@@ -1074,35 +825,23 @@ def wrap_text(
 
             if current:
 
-                lines.append(
-                    current
-                )
+                lines.append(current)
 
             current = word
 
     if current:
 
-        lines.append(
-            current
-        )
+        lines.append(current)
 
     return lines
 
-def wrap_author_balanced(
-    text,
-    font,
-    max_width,
-    draw
-):
+
+def wrap_author_balanced(text, font, max_width, draw):
 
     if not text:
         return []
 
-    if text_width(
-        draw,
-        text,
-        font
-    ) <= max_width:
+    if text_width(draw, text, font) <= max_width:
 
         return [text]
 
@@ -1117,155 +856,80 @@ def wrap_author_balanced(
 
     for i in range(1, len(words)):
 
-        linea1 = " ".join(
-            words[:i]
-        )
+        linea1 = " ".join(words[:i])
 
-        linea2 = " ".join(
-            words[i:]
-        )
+        linea2 = " ".join(words[i:])
 
-        ancho1 = text_width(
-            draw,
-            linea1,
-            font
-        )
+        ancho1 = text_width(draw, linea1, font)
 
-        ancho2 = text_width(
-            draw,
-            linea2,
-            font
-        )
+        ancho2 = text_width(draw, linea2, font)
 
-        if (
-            ancho1 <= max_width
-            and ancho2 <= max_width
-        ):
+        if ancho1 <= max_width and ancho2 <= max_width:
 
-            diferencia = abs(
-                ancho1 - ancho2
-            )
+            diferencia = abs(ancho1 - ancho2)
 
-            if (
-                mejor_diferencia is None
-                or diferencia < mejor_diferencia
-            ):
+            if mejor_diferencia is None or diferencia < mejor_diferencia:
 
                 mejor_diferencia = diferencia
                 mejor_corte = i
 
     if mejor_corte is not None:
 
-        return [
-            " ".join(words[:mejor_corte]),
-            " ".join(words[mejor_corte:])
-        ]
+        return [" ".join(words[:mejor_corte]), " ".join(words[mejor_corte:])]
 
     # Si no entran dos renglones,
     # dejamos que wrap_text haga
     # el reparto necesario.
 
-    return wrap_text(
-        text,
-        font,
-        max_width,
-        draw
-    )
+    return wrap_text(text, font, max_width, draw)
+
 
 # ============================================================
 # PREPARAR LAYOUT
 # ============================================================
 
+
 def prepare_quote_layout(
-    quote,
-    author,
-    canvas_width,
-    canvas_height,
-    font_path=None,
-    font_size=52
+    quote, author, canvas_width, canvas_height, font_path=None, font_size=52
 ):
 
     if font_path:
-    
-        font = ImageFont.truetype(
-            font_path,
-            font_size
-        )
-    
+
+        font = ImageFont.truetype(font_path, font_size)
+
     else:
-    
+
         font = get_quote_font()
 
-    dummy = Image.new(
-        "RGB",
-        (
-            canvas_width,
-            canvas_height
-        )
-    )
+    dummy = Image.new("RGB", (canvas_width, canvas_height))
 
-    draw = ImageDraw.Draw(
-        dummy
-    )
+    draw = ImageDraw.Draw(dummy)
 
-    initial_width = max(
-        200,
-        canvas_width
-        * QUOTES_WIDTH
-        // 100
-    )
+    initial_width = max(200, canvas_width * QUOTES_WIDTH // 100)
 
-    max_text_width = (
-        initial_width
-        - 4 * MARGIN
-    )
+    max_text_width = initial_width - 4 * MARGIN
 
-    wrapped_lines = wrap_text(
-        quote,
-        font,
-        max_text_width,
-        draw
-    )
+    wrapped_lines = wrap_text(quote, font, max_text_width, draw)
 
     if wrapped_lines:
 
-        qwidth = max(
-            text_width(
-                draw,
-                line,
-                font
-            )
-            for line in wrapped_lines
-        )
+        qwidth = max(text_width(draw, line, font) for line in wrapped_lines)
 
     else:
 
         qwidth = 0
 
-    bbox = draw.textbbox(
-        (0, 0),
-        "Ag",
-        font=font
-    )
+    bbox = draw.textbbox((0, 0), "Ag", font=font)
 
-    line_height = (
-        bbox[3]
-        - bbox[1]
-    )
+    line_height = bbox[3] - bbox[1]
 
     line_spacing = 5
 
     if wrapped_lines:
 
         qheight = (
-            len(wrapped_lines)
-            * line_height
-            +
-            max(
-                0,
-                len(wrapped_lines) - 1
-            )
-            * line_spacing
+            len(wrapped_lines) * line_height
+            + max(0, len(wrapped_lines) - 1) * line_spacing
         )
 
     else:
@@ -1274,10 +938,7 @@ def prepare_quote_layout(
 
     if QUOTES_WIDTH < 98:
 
-        box_width = (
-            qwidth
-            + 4 * MARGIN
-        )
+        box_width = qwidth + 4 * MARGIN
 
     else:
 
@@ -1289,33 +950,17 @@ def prepare_quote_layout(
 
     if author:
 
-        author_text = (
-            "— "
-            + author
-        )
+        author_text = "— " + author
 
         author_lines = wrap_author_balanced(
-            author_text,
-            font,
-            box_width
-            - 4 * MARGIN,
-            draw
+            author_text, font, box_width - 4 * MARGIN, draw
         )
 
         if author_lines:
 
-            aheight = (
-                len(author_lines)
-                * line_height
-            )
+            aheight = len(author_lines) * line_height
 
-    box_height = (
-        qheight
-        + aheight
-        + int(
-            2.5 * MARGIN
-        )
-    )
+    box_height = qheight + aheight + int(2.5 * MARGIN)
 
     return (
         font,
@@ -1335,6 +980,7 @@ def prepare_quote_layout(
 # GENERAR IMAGEN COMPUESTA
 # ============================================================
 
+
 def get_text_color(image):
     """
     Determina si conviene texto claro u oscuro
@@ -1349,46 +995,26 @@ def get_text_color(image):
     g = sum(p[1] for p in pixels) / len(pixels)
     b = sum(p[2] for p in pixels) / len(pixels)
 
-    luminance = (
-        0.2126 * r +
-        0.7152 * g +
-        0.0722 * b
-    )
+    luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
 
     if luminance >= 145:
-        return (
-            (20, 20, 20, 255),
-            (255, 255, 255, 190)
-        )
+        return ((20, 20, 20, 255), (255, 255, 255, 190))
 
-    return (
-        (255, 255, 255, 255),
-        (0, 0, 0, 210)
-    )
+    return ((255, 255, 255, 255), (0, 0, 0, 210))
+
 
 def generate_composite_image(
-    bg_image,
-    quote_text,
-    author_text,
-    font_path=None,
-    font_size=52
+    bg_image, quote_text, author_text, font_path=None, font_size=52
 ):
 
     canvas_width = bg_image.width
     canvas_height = bg_image.height
 
-    bg_color = (
-        get_image_representative_color(
-            bg_image
-        )
-    )
+    bg_color = get_image_representative_color(bg_image)
 
     r, g, b = bg_color
 
-    print(
-        "INFO: Color representativo: "
-        f"RGB {r}, {g}, {b}"
-    )
+    print("INFO: Color representativo: " f"RGB {r}, {g}, {b}")
 
     (
         font,
@@ -1402,203 +1028,82 @@ def generate_composite_image(
         line_height,
         line_spacing,
     ) = prepare_quote_layout(
-        quote_text,
-        author_text,
-        canvas_width,
-        canvas_height,
-        font_path,
-        font_size
+        quote_text, author_text, canvas_width, canvas_height, font_path, font_size
     )
 
-    hpos = int(
-        (
-            canvas_width
-            - box_width
-        )
-        * QUOTES_HPOS
-        / 100
-    )
+    hpos = int((canvas_width - box_width) * QUOTES_HPOS / 100)
 
-    vpos = int(
-        (
-            canvas_height
-            - box_height
-        )
-        * QUOTES_VPOS
-        / 100
-    )
+    vpos = int((canvas_height - box_height) * QUOTES_VPOS / 100)
 
-    overlay = Image.new(
-        "RGBA",
-        (
-            canvas_width,
-            canvas_height
-        ),
-        (0, 0, 0, 0)
-    )
+    overlay = Image.new("RGBA", (canvas_width, canvas_height), (0, 0, 0, 0))
 
-    draw_overlay = ImageDraw.Draw(
-        overlay
-    )
+    draw_overlay = ImageDraw.Draw(overlay)
 
-    alpha = int(
-        255
-        * BG_OPACITY
-        / 100
-    )
+    alpha = int(255 * BG_OPACITY / 100)
 
     draw_overlay.rectangle(
-        [
-            hpos,
-            vpos,
-            hpos + box_width,
-            vpos + box_height
-        ],
-        fill=(
-            r,
-            g,
-            b,
-            alpha
-        )
+        [hpos, vpos, hpos + box_width, vpos + box_height], fill=(r, g, b, alpha)
     )
 
-    result = Image.alpha_composite(
-        bg_image.convert("RGBA"),
-        overlay
-    )
+    result = Image.alpha_composite(bg_image.convert("RGBA"), overlay)
 
-    draw = ImageDraw.Draw(
-        result
-    )
+    draw = ImageDraw.Draw(result)
 
-    text_fill, text_stroke = get_text_color(
-        bg_image
-    )
+    text_fill, text_stroke = get_text_color(bg_image)
 
-    text_x = (
-        hpos
-        + (
-            box_width
-            - qwidth
-        )
-        / 2
-    )
+    text_x = hpos + (box_width - qwidth) / 2
 
-    text_y = (
-        vpos
-        + MARGIN
-    )
+    text_y = vpos + MARGIN
 
     for line in wrapped_lines:
 
         if TEXT_SHADOW:
 
             draw.text(
-                (
-                    int(text_x + 2),
-                    int(text_y + 2)
-                ),
-                line,
-                font=font,
-                fill=(
-                    0,
-                    0,
-                    0,
-                    51
-                )
+                (int(text_x + 2), int(text_y + 2)), line, font=font, fill=(0, 0, 0, 51)
             )
 
         draw.text(
-            (
-                int(text_x),
-                int(text_y)
-            ),
+            (int(text_x), int(text_y)),
             line,
             font=font,
             fill=text_fill,
             stroke_width=2,
-            stroke_fill=text_stroke
+            stroke_fill=text_stroke,
         )
 
-        text_y += (
-            line_height
-            + line_spacing
-        )
+        text_y += line_height + line_spacing
 
     if author_lines:
 
-        author_y = (
-            vpos
-            + MARGIN
-            + qheight
-            + MARGIN / 2
-        )
+        author_y = vpos + MARGIN + qheight + MARGIN / 2
 
-        author_layout_width = (
-            box_width
-            - 4 * MARGIN
-        )
+        author_layout_width = box_width - 4 * MARGIN
 
-        author_x = (
-            hpos
-            + (
-                box_width
-                - qwidth
-            )
-            / 2
-        )
+        author_x = hpos + (box_width - qwidth) / 2
 
         for author_line in author_lines:
 
-            author_w = text_width(
-                draw,
-                author_line,
-                font
-            )
+            author_w = text_width(draw, author_line, font)
 
-            author_draw_x = (
-                author_x
-                + author_layout_width
-                - author_w
-            )
+            author_draw_x = author_x + author_layout_width - author_w
 
             if TEXT_SHADOW:
 
                 draw.text(
-                    (
-                        int(
-                            author_draw_x
-                            + 2
-                        ),
-                        int(
-                            author_y
-                            + 2
-                        )
-                    ),
+                    (int(author_draw_x + 2), int(author_y + 2)),
                     author_line,
                     font=font,
-                    fill=(
-                        0,
-                        0,
-                        0,
-                        51
-                    )
+                    fill=(0, 0, 0, 51),
                 )
 
             draw.text(
-                (
-                    int(
-                        author_draw_x
-                    ),
-                    int(
-                        author_y
-                    )
-                ),
+                (int(author_draw_x), int(author_y)),
                 author_line,
                 font=font,
                 fill=text_fill,
                 stroke_width=2,
-                stroke_fill=text_stroke
+                stroke_fill=text_stroke,
             )
 
             author_y += line_height
@@ -1610,15 +1115,12 @@ def generate_composite_image(
 # ASEGURAR ESTADO
 # ============================================================
 
+
 def ensure_state():
 
     if STATE["current_image"] is None:
 
-        (
-            image,
-            width,
-            height
-        ) = fetch_random_background()
+        image, width, height = fetch_random_background()
 
         STATE["current_image"] = image
         STATE["current_width"] = width
@@ -1636,11 +1138,9 @@ def ensure_state():
 # RENDER IMAGE
 # ============================================================
 
+
 @app.get("/render-image")
-def render_image(
-    font_path: str = None,
-    font_size: int = None
-):
+def render_image(font_path: str = None, font_size: int = None):
 
     ensure_state()
 
@@ -1660,28 +1160,19 @@ def render_image(
 
     buf = io.BytesIO()
 
-    composite.convert(
-        "RGB"
-    ).save(
-        buf,
-        format="JPEG",
-        quality=95
-    )
+    composite.convert("RGB").save(buf, format="JPEG", quality=95)
 
     buf.seek(0)
 
     return StreamingResponse(
-        buf,
-        media_type="image/jpeg",
-        headers={
-            "Cache-Control": "no-store"
-        }
+        buf, media_type="image/jpeg", headers={"Cache-Control": "no-store"}
     )
 
 
 # ============================================================
 # INFORMACIÓN DE LA CITA
 # ============================================================
+
 
 @app.get("/quote")
 def get_quote():
@@ -1692,10 +1183,7 @@ def get_quote():
 
     author = STATE["current_author"]
 
-    full_text = (
-        f"{text}\n"
-        f"— {author}"
-    )
+    full_text = f"{text}\n" f"— {author}"
 
     return JSONResponse(
         {
@@ -1710,18 +1198,13 @@ def get_quote():
 # CAMBIAR IMAGEN / CITA / AMBAS
 # ============================================================
 
+
 @app.get("/action/{action_type}")
-def handle_action(
-    action_type: str
-):
+def handle_action(action_type: str):
 
     if action_type == "change_image":
 
-        (
-            image,
-            width,
-            height
-        ) = fetch_random_background()
+        image, width, height = fetch_random_background()
 
         STATE["current_image"] = image
         STATE["current_width"] = width
@@ -1736,11 +1219,7 @@ def handle_action(
 
     elif action_type == "change_both":
 
-        (
-            image,
-            width,
-            height
-        ) = fetch_random_background()
+        image, width, height = fetch_random_background()
 
         STATE["current_image"] = image
         STATE["current_width"] = width
@@ -1762,6 +1241,7 @@ def handle_action(
 # DESCARGAR IMAGEN + CITA
 # ============================================================
 
+
 @app.get("/download")
 def download_wallpaper():
 
@@ -1777,39 +1257,21 @@ def download_wallpaper():
 
     buf = io.BytesIO()
 
-    composite.convert(
-        "RGB"
-    ).save(
-        buf,
-        format="JPEG",
-        quality=100
-    )
+    composite.convert("RGB").save(buf, format="JPEG", quality=100)
 
     buf.seek(0)
 
-    nombre_archivo = (
-        "cita_"
-        + datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        + ".jpg"
-    )
-    
-    headers = {
-        "Content-Disposition": (
-            "attachment; "
-            f"filename={nombre_archivo}"
-        )
-    }
+    nombre_archivo = "cita_" + datetime.now().strftime("%Y%m%d_%H%M%S_%f") + ".jpg"
 
-    return StreamingResponse(
-        buf,
-        media_type="image/jpeg",
-        headers=headers
-    )
+    headers = {"Content-Disposition": ("attachment; " f"filename={nombre_archivo}")}
+
+    return StreamingResponse(buf, media_type="image/jpeg", headers=headers)
 
 
 # ============================================================
 # DESCARGAR SOLO LA IMAGEN
 # ============================================================
+
 
 @app.get("/download-image")
 def download_image():
@@ -1818,38 +1280,21 @@ def download_image():
 
     buf = io.BytesIO()
 
-    STATE["current_image"].convert(
-        "RGB"
-    ).save(
-        buf,
-        format="JPEG",
-        quality=100
-    )
+    STATE["current_image"].convert("RGB").save(buf, format="JPEG", quality=100)
 
     buf.seek(0)
 
-    headers = {
-        "Content-Disposition": (
-            "attachment; "
-            "filename=wallpaper.jpg"
-        )
-    }
+    headers = {"Content-Disposition": ("attachment; " "filename=wallpaper.jpg")}
 
-    return StreamingResponse(
-        buf,
-        media_type="image/jpeg",
-        headers=headers
-    )
+    return StreamingResponse(buf, media_type="image/jpeg", headers=headers)
 
 
 # ============================================================
 # INTERFAZ WEB
 # ============================================================
 
-@app.get(
-    "/",
-    response_class=HTMLResponse
-)
+
+@app.get("/", response_class=HTMLResponse)
 def index():
 
     return """
@@ -2106,6 +1551,18 @@ def index():
 
             z-index: 20;
 
+        }
+
+        .info-selector {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 50;
+        }
+        
+        .info-panel {
+            right: auto;
+            left: 0;
         }
 
         .font-selector-button {
@@ -2411,6 +1868,40 @@ def index():
         >
             🖼️ Citas de Prem
         </h1>
+
+
+<!-- BOTÓN DE INFORMACIÓN (ARRIBA A LA IZQUIERDA) -->
+<div class="info-selector">
+    <button
+        type="button"
+        id="info-selector-button"
+        class="font-selector-button"
+        onclick="toggleInfoPanel()"
+        title="Información del origen de las fuentes"
+    >
+        <span class="font-icon-text">ⓘ</span>
+    </button>
+
+    <div id="info-panel" class="font-panel info-panel">
+        <div class="font-controls">
+            <strong style="color: #ffffff; font-size: 0.95rem;">Metadatos del origen de la cita y de la imagen</strong>
+        </div>
+        <div style="font-size: 0.85rem; color: #cbd5e1; line-height: 1.5; text-align: left; display: flex; flex-direction: column; gap: 10px; padding: 10px 0;">
+            <div>
+                <strong style="color: #60a5fa; display: block;">Fuente de la cita:</strong>
+                <a id="info-quote-url" href="https://www.timelesstoday.tv" target="_blank" rel="noopener noreferrer" style="color: #93c5fd; word-break: break-all;">
+                    Timeless Today
+                </a>
+            </div>
+            <div>
+                <strong style="color: #60a5fa; display: block;">Origen de la imagen:</strong>
+                <a id="info-image-url" href="https://wallhaven.cc" target="_blank" rel="noopener noreferrer" style="color: #93c5fd; word-break: break-all;">
+                    Wallhaven / Bing Images
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
 
         <div class="preview-card">
 
@@ -2784,7 +2275,7 @@ def index():
                 path.split('/').pop();
 
             return filename
-                .replace(/\.(ttf|otf|ttc)$/i, '')
+                .replace(/\\.(ttf|otf|ttc)$/i, '')
                 .replace(/[-_]/g, ' ');
 
         }
@@ -2980,8 +2471,8 @@ def index():
                     
                         };
 
-
-                        item.ondblclick =
+                      
+                                item.ondblclick =
                             () => {
                         
                                 if (!selectedFont) {
@@ -3006,6 +2497,8 @@ def index():
                                     url
                                     + '&t='
                                     + Date.now();
+
+                                toggleFontSelector();
                         
                             };
 
@@ -3063,13 +2556,59 @@ def index():
 
                 }
             );
+
+        async function updateMetadataPanel() {
+            try {
+                const response = await fetch('/api/current-metadata');
+                if (!response.ok) return;
+                const data = await response.json();
+
+                const quoteLink = document.getElementById('info-quote-url');
+                const imageLink = document.getElementById('info-image-url');
+
+                if (quoteLink) {
+                    quoteLink.href = data.quote_url;
+                    quoteLink.textContent = data.quote_url.includes('/media/') 
+                        ? 'Ver cita en Timeless Today ↗' 
+                        : 'Timeless Today';
+                }
+
+                if (imageLink) {
+                    imageLink.href = data.image_url;
+                    if (data.image_url.includes('wallhaven.cc')) {
+                        imageLink.textContent = 'Ver en Wallhaven ↗';
+                    } else if (data.image_url.includes('bing.com')) {
+                        imageLink.textContent = 'Ver en Bing Images ↗';
+                    } else {
+                        imageLink.textContent = 'Wallhaven / Bing Images';
+                    }
+                }
+            } catch (e) {
+                console.error("Error al actualizar metadatos:", e);
+            }
+        }
+
+        function toggleInfoPanel() {
+            const infoPanel = document.getElementById('info-panel');
+            infoPanel.classList.toggle('open');
+            
+            // Si se abre el panel, consultamos y actualizamos los enlaces
+            if (infoPanel.classList.contains('open')) {
+                updateMetadataPanel();
+            }
+            
+            const fontPanel = document.getElementById('font-panel');
+            if (fontPanel && fontPanel.classList.contains('open')) {
+                fontPanel.classList.remove('open');
+            }
+        }
+            
     </script>
 
 </body>
 
 </html>
 """
-
 
 
 # ============================================================
@@ -3089,16 +2628,6 @@ if __name__ == "__main__":
 
     import uvicorn
 
-    port = int(
-        os.environ.get(
-            "PORT",
-            8000
-        )
-    )
+    port = int(os.environ.get("PORT", 8000))
 
-    uvicorn.run(
-        "app:app",
-        host="0.0.0.0",
-        port=port,
-        reload=False
-    )
+    uvicorn.run("app:app", host="0.0.0.0", port=port, reload=False)
