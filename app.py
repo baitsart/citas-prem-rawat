@@ -393,14 +393,10 @@ def procesar_evento(evento):
     if not raw_cita:
         return None
 
-    # Intentar obtener el ID de media o slug para construir la URL del video/audio
-    media_id = evento.get("tt_media_id") or evento.get("id") or evento.get("tt_product_id")
-    if media_id:
-        url_evento = f"https://timelesstoday.tv/es/media/{media_id}"
-    else:
-        url_evento = "https://timelesstoday.tv/es"
+    # Obtener el UUID/GUID o ID del producto para generar la URL funcional
+    url_evento = extraer_url_evento(evento)
 
-    # ... (limpieza de texto existente en tu app.py) ...
+    # Limpieza de texto
     texto = unescape(str(raw_cita))
     texto = re.sub(r"<[^>]+>", "", texto)
     texto = re.sub(r"\s+", " ", texto).strip()
@@ -434,7 +430,6 @@ def procesar_evento(evento):
     else:
         quote_text = f"“{texto}” — Prem Rawat"
 
-    # Devolvemos un diccionario estructurado con la cita y su URL
     return {
         "quote": quote_text,
         "url": url_evento
