@@ -1565,8 +1565,8 @@ def index():
         }
         
         .info-panel {
-            right: 0;
-            left: auto;
+            left: 0;
+            right: auto;
         }
 
         .font-selector-button {
