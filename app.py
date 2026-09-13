@@ -459,10 +459,12 @@ def load_all_quotes():
 
             # 4. Construir URL de la fuente
             url_evento = item.get("url")
+            
             if not url_evento:
-                identifier = item.get("uuid") or item.get("slug") or item.get("id")
-                if identifier:
-                    url_evento = f"https://timelesstoday.tv/es/product/{identifier}"
+                uuid = item.get("tt_media_uuid")
+            
+                if uuid and len(str(uuid)) == 36:
+                    url_evento = f"https://timelesstoday.tv/es/events/product/{uuid}"
                 else:
                     url_evento = "https://timelesstoday.tv/es"
 
