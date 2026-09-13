@@ -1561,12 +1561,8 @@ def index():
         }
         
         .info-panel {
-            top: calc(100% + 8px);
-            left: 0;
             right: auto;
-            transform: none;
-            width: 320px;
-            max-width: calc(100vw - 40px);
+            left: 0;
         }
 
         .font-selector-button {
@@ -1873,40 +1869,41 @@ def index():
             🖼️ Citas de Prem
         </h1>
 
-        <div class="preview-card">
 
-            <!-- BOTÓN DE INFORMACIÓN (ARRIBA A LA IZQUIERDA, DENTRO DE LA TARJETA) -->
-            <div class="info-selector">
-                <button
-                    type="button"
-                    id="info-selector-button"
-                    class="font-selector-button"
-                    onclick="toggleInfoPanel()"
-                    title="Información del origen de las fuentes"
-                >
-                    <span class="font-icon-text">ⓘ</span>
-                </button>
+<!-- BOTÓN DE INFORMACIÓN (ARRIBA A LA IZQUIERDA) -->
+<div class="info-selector">
+    <button
+        type="button"
+        id="info-selector-button"
+        class="font-selector-button"
+        onclick="toggleInfoPanel()"
+        title="Información del origen de las fuentes"
+    >
+        <span class="font-icon-text">ⓘ</span>
+    </button>
 
-                <div id="info-panel" class="font-panel info-panel">
-                    <div class="font-controls">
-                        <strong style="color: #ffffff; font-size: 0.95rem;">Metadatos del origen de la cita y de la imagen</strong>
-                    </div>
-                    <div style="font-size: 0.85rem; color: #cbd5e1; line-height: 1.5; text-align: left; display: flex; flex-direction: column; gap: 10px; padding: 10px 0;">
-                        <div>
-                            <strong style="color: #60a5fa; display: block;">Fuente de la cita:</strong>
-                            <a id="info-quote-url" href="https://www.timelesstoday.tv" target="_blank" rel="noopener noreferrer" style="color: #93c5fd; word-break: break-all;">
-                                Timeless Today
-                            </a>
-                        </div>
-                        <div>
-                            <strong style="color: #60a5fa; display: block;">Origen de la imagen:</strong>
-                            <a id="info-image-url" href="https://wallhaven.cc" target="_blank" rel="noopener noreferrer" style="color: #93c5fd; word-break: break-all;">
-                                Wallhaven / Bing Images
-                            </a>
-                        </div>
-                    </div>
-                </div>
+    <div id="info-panel" class="font-panel info-panel">
+        <div class="font-controls">
+            <strong style="color: #ffffff; font-size: 0.95rem;">Metadatos del origen de la cita y de la imagen</strong>
+        </div>
+        <div style="font-size: 0.85rem; color: #cbd5e1; line-height: 1.5; text-align: left; display: flex; flex-direction: column; gap: 10px; padding: 10px 0;">
+            <div>
+                <strong style="color: #60a5fa; display: block;">Fuente de la cita:</strong>
+                <a id="info-quote-url" href="https://www.timelesstoday.tv" target="_blank" rel="noopener noreferrer" style="color: #93c5fd; word-break: break-all;">
+                    Timeless Today
+                </a>
             </div>
+            <div>
+                <strong style="color: #60a5fa; display: block;">Origen de la imagen:</strong>
+                <a id="info-image-url" href="https://wallhaven.cc" target="_blank" rel="noopener noreferrer" style="color: #93c5fd; word-break: break-all;">
+                    Wallhaven / Bing Images
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+        <div class="preview-card">
 
             <img
                 id="wallpaper"
@@ -1921,27 +1918,33 @@ def index():
                 Procesando...
             </div>
 
-            <!-- BOTÓN DE TIPOGRAFÍAS (ARRIBA A LA DERECHA, DENTRO DE LA TARJETA) -->
-            <div class="font-selector">
-                <button
-                    type="button"
-                    id="font-selector-button"
-                    class="font-selector-button"
-                    onclick="toggleFontSelector()"
-                    title="Cambiar tipografía"
-                >
-                    <span class="font-icon-text">Aa</span>
-                </button>
-                <div
+    </div>
+
+        <div class="font-selector">
+            <button
+                type="button"
+                id="font-selector-button"
+                class="font-selector-button"
+                onclick="toggleFontSelector()"
+                title="Cambiar tipografía"
+            >
+                <span class="font-icon-text">Aa</span>
+            </button>
+            <div
                     id="font-panel"
                     class="font-panel"
                 >
+                
                     <div class="font-controls">
+                
                         <div class="selected-font-name">
                             Tipografía: <strong id="selected-font">Ninguna</strong>
                         </div>
+                
                         <div class="font-size-control">
+                
                             <span>Tamaño:</span>
+                
                             <button
                                 type="button"
                                 class="font-size-button"
@@ -1949,12 +1952,14 @@ def index():
                             >
                                 −
                             </button>
+                
                             <span
                                 id="font-size-value"
                                 class="font-size-value"
                             >
                                 52 px
                             </span>
+                
                             <button
                                 type="button"
                                 class="font-size-button"
@@ -1962,21 +1967,27 @@ def index():
                             >
                                 +
                             </button>
+                
                         </div>
+                
                     </div>
+                
                     <input
                         type="text"
                         id="font-search"
                         placeholder="Buscar tipografía..."
                         autocomplete="off"
                     >
+            
                     <div
                         id="font-list"
                         class="font-list"
                     >
                         Cargando tipografías...
                     </div>
+            
                 </div>
+            
             </div>
 
         </div>
