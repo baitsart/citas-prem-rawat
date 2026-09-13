@@ -382,11 +382,19 @@ def hacer_peticion(offset):
 # citas_timelesstoday.py
 # ============================================================
 
-def extraer_url_evento(item):
-    uuid = item.get("uuid") or item.get("guid") or item.get("product_id") or item.get("slug")
-    if uuid:
+def extraer_url_evento(evento):
+    # 1. Intentar con el UUID o GUID si existe
+    uuid = evento.get("uuid") or evento.get("guid") or evento.get("product_id")
+    if uuid and not str(uuid).startswith("48"): # Si es un UUID real de la API
         return f"https://timelesstoday.tv/es/events/product/{uuid}"
-    return "https://www.timelesstoday.tv/es"
+
+    # 2. Si es un JSON con 'titulo' o 'tt_name', crear un enlace de búsqueda
+    titulo = evento.get("titulo") or evento.get("tt_name")
+    if titulo:
+        query = urllib.parse.quote(titulo.strip())
+        return f"https://timelesstoday.tv/es/search?q={query}"
+
+    return "https://timelesstoday.tv/es"
 
 def procesar_evento(evento):
     raw_cita = evento.get("tt_one_line_quote")
