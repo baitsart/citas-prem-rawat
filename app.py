@@ -658,7 +658,11 @@ def get_wallhaven_wallpaper():
         if len(RECENT_WALLHAVEN_IDS) > MAX_RECENT_WALLHAVEN:
             del RECENT_WALLHAVEN_IDS[: len(RECENT_WALLHAVEN_IDS) - MAX_RECENT_WALLHAVEN]
 
-    return get_image_bytes(elegido["path"])
+    # CORRECCIÓN: Retornar tanto los bytes como la URL
+    img_bytes = get_image_bytes(elegido["path"])
+    page_url = elegido.get("url", elegido["path"])
+
+    return img_bytes, page_url
 
 
 # ============================================================
