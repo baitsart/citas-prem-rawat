@@ -1565,8 +1565,10 @@ def index():
         }
         
         .info-panel {
-            left: 0;
-            right: auto;
+            left: 0 !important;
+            right: auto !important;
+            transform: none !important;
+            max-width: calc(100vw - 30px); /* Previene que se salga en pantallas chicas */
         }
 
         .font-selector-button {
