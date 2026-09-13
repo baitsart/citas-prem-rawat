@@ -382,18 +382,19 @@ def hacer_peticion(offset):
 # citas_timelesstoday.py
 # ============================================================
 
-def extraer_url_evento(evento):
-    # 1. Intentar con el UUID o GUID si existe
-    uuid = evento.get("uuid") or evento.get("guid") or evento.get("product_id")
-    if uuid and not str(uuid).startswith("48"): # Si es un UUID real de la API
-        return f"https://timelesstoday.tv/es/events/product/{uuid}"
+def extraer_url_evento(item):
+    # 1. Prioridad: UUID o GUID real de la API de Timeless Today (ej. bbd71b45-1dfb-4c79-aec6-a0a68f6bfdce)
+    uuid = item.get("uuid") or item.get("guid") or item.get("product_id") or item.get("content_id")
 
-    # 2. Si es un JSON con 'titulo' o 'tt_name', crear un enlace de búsqueda
-    titulo = evento.get("titulo") or evento.get("tt_name")
-    if titulo:
-        query = urllib.parse.quote(titulo.strip())
-        return f"https://timelesstoday.tv/es/search?q={query}"
+    if uuid:
+        # La ruta directa y exacta al producto o evento en la web pública:
+        return f"https://timelesstoday.tv/es/product/{uuid}"
 
+    # 2. Si viene una URL directa previa en el JSON
+    if item.get("url") and str(item.get("url")).startswith("http"):
+        return item.get("url")
+
+    # 3. Respaldo general si no hay ID único disponible
     return "https://timelesstoday.tv/es"
 
 def procesar_evento(evento):
@@ -453,60 +454,74 @@ def procesar_evento(evento):
 
 def load_all_quotes():
     global ALL_QUOTES
-    print("INFO: Cargando citas de TimelessToday...")
+    print("INFO: Cargando citas desde banco.json...")
 
-    primera_pagina = hacer_peticion(0)
+    json_path = Path("banco.json")
 
-    if not primera_pagina:
-        print("WARNING: No se pudo obtener la primera página de TimelessToday.")
+    if not json_path.exists():
+        print("WARNING: No se encontró banco.json, usando citas de respaldo.")
         ALL_QUOTES = list(CITAS_MEMORIA)
         return
 
-    total_eventos = primera_pagina.get("filter", {}).get("count", 0)
+    try:
+        with open(json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
 
-    if total_eventos == 0:
-        print("WARNING: TimelessToday no devolvió eventos.")
-        ALL_QUOTES = list(CITAS_MEMORIA)
-        return
+        citas_procesadas = []
 
-    print(f"INFO: TimelessToday informa {total_eventos} eventos.")
+        for item in data:
+            raw_cita = item.get("cita")
+            if not raw_cita:
+                continue
 
-    offsets = list(range(0, total_eventos, TIMELESS_LIMIT))
-    citas = []
+            texto = str(raw_cita).strip()
 
-    for offset in offsets:
-        if offset == 0:
-            datos = primera_pagina
+            # Limpiar posibles firmas al final del texto para no duplicar "Prem Rawat"
+            match_firma = re.search(
+                r"[\s–\-—]*Prem\s+Rawat(?:[.,]\s*(.+))?[.]?$", texto, flags=re.IGNORECASE
+            )
+            if match_firma:
+                texto = texto[: match_firma.start()].strip()
+
+            # Limpiar comillas iniciales o finales
+            texto = re.sub(r'^["“”’\']+|["“”’\']+$', "", texto).strip()
+            texto = re.sub(r'["”’\']+\s*\.?$', "", texto).strip()
+
+            if texto and not texto.endswith((".", "!", "?", "…")):
+                texto += "."
+
+            titulo = item.get("titulo", "").strip()
+            
+            # Formateamos el texto de la cita con autor y origen/evento
+            if titulo:
+                quote_text = f"“{texto}” — Prem Rawat ({titulo})"
+            else:
+                quote_text = f"“{texto}” — Prem Rawat"
+
+            # Construir URL directa de la fuente
+            url_evento = item.get("url")
+            if not url_evento:
+                if item.get("uuid"):
+                    url_evento = f"https://timelesstoday.tv/es/product/{item.get('uuid')}"
+                elif titulo:
+                    url_evento = f"https://timelesstoday.tv/es/search?q={urllib.parse.quote(titulo)}"
+                else:
+                    url_evento = "https://timelesstoday.tv/es"
+
+            citas_procesadas.append({
+                "quote": quote_text,
+                "url": url_evento,
+                "imagen": item.get("imagen")
+            })
+
+        if citas_procesadas:
+            ALL_QUOTES = citas_procesadas
+            print(f"INFO: Se cargaron exitosamente {len(ALL_QUOTES)} citas desde banco.json.")
         else:
-            datos = hacer_peticion(offset)
+            ALL_QUOTES = list(CITAS_MEMORIA)
 
-        if not datos:
-            print(f"WARNING: No se pudo cargar offset {offset}.")
-            continue
-
-        eventos = datos.get("data", [])
-
-        for evento in eventos:
-            # procesar_evento(evento) ya retorna un dict {"quote": ..., "url": ...}
-            item_cita = procesar_evento(evento)
-            if item_cita:
-                citas.append(item_cita)
-
-    # Eliminar duplicados conservando orden
-    citas_unicas = []
-    vistas = set()
-
-    for c in citas:
-        clave_texto = str(c.get("quote", "")) if isinstance(c, dict) else str(c)
-        if clave_texto and clave_texto not in vistas:
-            vistas.add(clave_texto)
-            citas_unicas.append(c)
-
-    # ASIGNACIÓN CLAVE: Se actualiza la variable global con las citas procesadas
-    if citas_unicas:
-        ALL_QUOTES = citas_unicas
-        print(f"INFO: Se cargaron exitosamente {len(ALL_QUOTES)} citas de TimelessToday.")
-    else:
+    except Exception as e:
+        print(f"ERROR al leer banco.json: {e}")
         ALL_QUOTES = list(CITAS_MEMORIA)
 
 
