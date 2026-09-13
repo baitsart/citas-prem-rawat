@@ -382,6 +382,15 @@ def hacer_peticion(offset):
 # citas_timelesstoday.py
 # ============================================================
 
+def extraer_url_evento(item):
+    uuid = item.get("uuid") or item.get("guid") or item.get("product_id") or item.get("slug")
+    if uuid:
+        return f"https://timelesstoday.tv/es/events/product/{uuid}"
+    return "https://www.timelesstoday.tv/es"
+
+
+def procesar_evento(evento):
+    # Tu código actual de procesar_evento...
 
 def procesar_evento(evento):
     raw_cita = evento.get("tt_one_line_quote")
@@ -444,89 +453,66 @@ def procesar_evento(evento):
 
 
 def load_all_quotes():
-
     global ALL_QUOTES
-
     print("INFO: Cargando citas de TimelessToday...")
 
     primera_pagina = hacer_peticion(0)
 
     if not primera_pagina:
-
-        print("WARNING: No se pudo obtener " "la primera página de TimelessToday.")
-
+        print("WARNING: No se pudo obtener la primera página de TimelessToday.")
         ALL_QUOTES = list(CITAS_MEMORIA)
-
         return
 
     total_eventos = primera_pagina.get("filter", {}).get("count", 0)
 
     if total_eventos == 0:
-
-        print("WARNING: TimelessToday " "no devolvió eventos.")
-
+        print("WARNING: TimelessToday no devolvió eventos.")
         ALL_QUOTES = list(CITAS_MEMORIA)
-
         return
 
-    print(f"INFO: TimelessToday informa " f"{total_eventos} eventos.")
+    print(f"INFO: TimelessToday informa {total_eventos} eventos.")
 
     offsets = list(range(0, total_eventos, TIMELESS_LIMIT))
-
     citas = []
 
     for offset in offsets:
-
-        # ----------------------------------------------------
-        # La página 0 ya la tenemos.
-        # ----------------------------------------------------
-
         if offset == 0:
-
             datos = primera_pagina
-
         else:
-
             datos = hacer_peticion(offset)
 
         if not datos:
-
-            print(f"WARNING: No se pudo cargar " f"offset {offset}.")
-
+            print(f"WARNING: No se pudo cargar offset {offset}.")
             continue
 
         eventos = datos.get("data", [])
 
         for evento in eventos:
-
-            cita = procesar_evento(evento)
-
-            if cita:
-
-                citas.append(cita)
+            cita_texto = procesar_evento(evento)
+            if cita_texto:
+                # Extraemos la URL con la nueva función y guardamos el diccionario completo
+                url_cita = extraer_url_evento(evento)
+                citas.append({
+                    "quote": cita_texto,
+                    "url": url_cita
+                })
 
     # --------------------------------------------------------
-    # Eliminar duplicados conservando orden
+    # Eliminar duplicados conservando orden (CUIDAR IDENTACIÓN)
     # --------------------------------------------------------
-
-        citas_unicas = []
-        vistas = set()
-        for c in citas:
-            clave = c['quote'] if isinstance(c, dict) else c
-            if clave not in vistas:
-                vistas.add(clave)
-                citas_unicas.append(c)
+    citas_unicas = []
+    vistas = set()
+    for c in citas:
+        clave = c['quote'] if isinstance(c, dict) else c
+        if clave not in vistas:
+            vistas.add(clave)
+            citas_unicas.append(c)
 
     if citas_unicas:
-
         ALL_QUOTES = citas_unicas
-
-        print("INFO: Citas cargadas: " f"{len(ALL_QUOTES)}")
-
+        print(f"INFO: Citas cargadas: {len(ALL_QUOTES)}")
     else:
-
-        print("WARNING: No se pudo procesar " "ninguna cita de TimelessToday.")
-
+        print("WARNING: No se pudo procesar ninguna cita de TimelessToday.")
         ALL_QUOTES = list(CITAS_MEMORIA)
 
 
@@ -544,16 +530,17 @@ def load_all_quotes():
 
 # Modificación en get_new_quote para almacenar también la URL si está disponible
 def get_new_quote():
+    # Si la lista vacía recurre a memoria local, asigna la portada principal
     if not ALL_QUOTES:
         STATE["current_quote_url"] = "https://www.timelesstoday.tv/es"
         return random.choice(CITAS_MEMORIA)
 
     item = random.choice(ALL_QUOTES)
 
-    # Si item es un diccionario con la URL
     if isinstance(item, dict):
         quote = item.get("quote", "")
-        STATE["current_quote_url"] = item.get("url", "https://www.timelesstoday.tv/es")
+        # Usa la URL específica o la portada principal como respaldo
+        STATE["current_quote_url"] = item.get("url") or "https://www.timelesstoday.tv/es"
     else:
         quote = item
         STATE["current_quote_url"] = "https://www.timelesstoday.tv/es"
