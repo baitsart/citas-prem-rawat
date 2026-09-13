@@ -383,18 +383,21 @@ def hacer_peticion(offset):
 # ============================================================
 
 def extraer_url_evento(item):
-    # 1. Prioridad: UUID o GUID real de la API de Timeless Today (ej. bbd71b45-1dfb-4c79-aec6-a0a68f6bfdce)
-    uuid = item.get("uuid") or item.get("guid") or item.get("product_id") or item.get("content_id")
-
-    if uuid:
-        # La ruta directa y exacta al producto o evento en la web pública:
-        return f"https://timelesstoday.tv/es/product/{uuid}"
-
-    # 2. Si viene una URL directa previa en el JSON
+    # 1. Si el JSON ya trae una URL directa manual válida
     if item.get("url") and str(item.get("url")).startswith("http"):
         return item.get("url")
 
-    # 3. Respaldo general si no hay ID único disponible
+    # 2. Si existe un UUID de 36 caracteres (ej. de la API original)
+    uuid = item.get("uuid") or item.get("guid")
+    if uuid and len(str(uuid)) > 30:
+        return f"https://timelesstoday.tv/es/product/{uuid}"
+
+    # 3. Si tenemos el título del evento, generamos la búsqueda pública exacta
+    titulo = item.get("titulo")
+    if titulo:
+        return f"https://timelesstoday.tv/es/search?q={urllib.parse.quote(titulo.strip())}"
+
+    # 4. Respaldo general
     return "https://timelesstoday.tv/es"
 
 def procesar_evento(evento):
