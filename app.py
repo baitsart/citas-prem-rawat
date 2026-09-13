@@ -388,10 +388,6 @@ def extraer_url_evento(item):
         return f"https://timelesstoday.tv/es/events/product/{uuid}"
     return "https://www.timelesstoday.tv/es"
 
-
-def procesar_evento(evento):
-    # Tu código actual de procesar_evento...
-
 def procesar_evento(evento):
     raw_cita = evento.get("tt_one_line_quote")
     if not raw_cita:
