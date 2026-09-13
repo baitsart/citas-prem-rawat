@@ -494,22 +494,23 @@ def load_all_quotes():
                 })
 
     # --------------------------------------------------------
-    # Eliminar duplicados conservando orden (CUIDAR IDENTACIÓN)
+    # Eliminar duplicados conservando orden de forma segura
     # --------------------------------------------------------
     citas_unicas = []
     vistas = set()
-    for c in citas:
-        clave = c['quote'] if isinstance(c, dict) else c
-        if clave not in vistas:
-            vistas.add(clave)
-            citas_unicas.append(c)
 
-    if citas_unicas:
-        ALL_QUOTES = citas_unicas
-        print(f"INFO: Citas cargadas: {len(ALL_QUOTES)}")
-    else:
-        print("WARNING: No se pudo procesar ninguna cita de TimelessToday.")
-        ALL_QUOTES = list(CITAS_MEMORIA)
+    for c in citas:
+        # Extraemos el texto de la cita garantizando que sea una cadena
+        if isinstance(c, dict):
+            valor_raw = c.get('quote', '')
+            # Si 'quote' era otro dict por error, tomamos la representación en texto
+            clave_texto = str(valor_raw)
+        else:
+            clave_texto = str(c)
+
+        if clave_texto not in vistas:
+            vistas.add(clave_texto)
+            citas_unicas.append(c)
 
 
 # ============================================================
