@@ -1563,6 +1563,8 @@ def index():
         .info-panel {
             right: auto;
             left: 0;
+            width: 360px;
+            max-width: 90vw;
         }
 
         .font-selector-button {
