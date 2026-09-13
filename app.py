@@ -384,90 +384,56 @@ def hacer_peticion(offset):
 
 
 def procesar_evento(evento):
-
     raw_cita = evento.get("tt_one_line_quote")
-
     if not raw_cita:
-
         return None
 
-    # --------------------------------------------------------
-    # 1. Limpieza inicial de HTML y espacios
-    # --------------------------------------------------------
+    # Intentar obtener el ID de media o slug para construir la URL del video/audio
+    media_id = evento.get("tt_media_id") or evento.get("id") or evento.get("tt_product_id")
+    if media_id:
+        url_evento = f"https://timelesstoday.tv/es/media/{media_id}"
+    else:
+        url_evento = "https://timelesstoday.tv/es"
 
+    # ... (limpieza de texto existente en tu app.py) ...
     texto = unescape(str(raw_cita))
-
     texto = re.sub(r"<[^>]+>", "", texto)
-
     texto = re.sub(r"\s+", " ", texto).strip()
-
-    # --------------------------------------------------------
-    # 2. Extraer "Prem Rawat" y fecha/lugar si vienen
-    # dentro de la propia cita
-    # --------------------------------------------------------
-
-    lugar_fecha = None
 
     match_firma = re.search(
         r"[\s–\-—]*Prem\s+Rawat(?:[.,]\s*(.+))?[.]?$", texto, flags=re.IGNORECASE
     )
-
+    lugar_fecha = None
     if match_firma:
-
         texto = texto[: match_firma.start()].strip()
-
         if match_firma.group(1):
-
             lugar_fecha = match_firma.group(1).strip()
 
-    # --------------------------------------------------------
-    # 3. Si no venía fecha/lugar dentro del texto,
-    # usamos el nombre del evento
-    # --------------------------------------------------------
-
     if not lugar_fecha:
-
         nombre_evento = evento.get("tt_name")
-
         if nombre_evento and nombre_evento.strip():
-
             lugar_fecha = nombre_evento.strip()
 
-    # --------------------------------------------------------
-    # 4. Limpiar comillas basura
-    # --------------------------------------------------------
-
     texto = re.sub(r'^["“”’\']+|["“”’\']+$', "", texto).strip()
-
     texto = re.sub(r'["”’\']+\s*\.?$', "", texto).strip()
 
-    # --------------------------------------------------------
-    # Asegurar punto final
-    # --------------------------------------------------------
-
     if texto and not texto.endswith((".", "!", "?", "…")):
-
         texto += "."
 
     if not texto:
-
         return None
 
-    # --------------------------------------------------------
-    # 5. Formatear
-    # --------------------------------------------------------
-
     if lugar_fecha:
-
-        lugar_fecha = re.sub(r'^["“”’\']+|["“”’\']+$', "", lugar_fecha).strip()
-
-        lugar_fecha = lugar_fecha.rstrip(".")
-
-        return f"“{texto}” — Prem Rawat, " f"({lugar_fecha})"
-
+        lugar_fecha = re.sub(r'^["“”’\']+|["“”’\']+$', "", lugar_fecha).strip().rstrip(".")
+        quote_text = f"“{texto}” — Prem Rawat, ({lugar_fecha})"
     else:
+        quote_text = f"“{texto}” — Prem Rawat"
 
-        return f"“{texto}” — Prem Rawat"
+    # Devolvemos un diccionario estructurado con la cita y su URL
+    return {
+        "quote": quote_text,
+        "url": url_evento
+    }
 
 
 # ============================================================
@@ -570,42 +536,31 @@ def load_all_quotes():
 # ============================================================
 
 
+# Modificación en get_new_quote para almacenar también la URL si está disponible
 def get_new_quote():
-
     if not ALL_QUOTES:
-
+        STATE["current_quote_url"] = "https://www.timelesstoday.tv/es"
         return random.choice(CITAS_MEMORIA)
 
-    quote = random.choice(ALL_QUOTES)
-
-    # --------------------------------------------------------
-    # Las citas de TimelessToday ya vienen completas como:
-    #
-    # “texto” — Prem Rawat, lugar/fecha
-    #
-    # Aquí las separamos para que el resto de app.py
-    # continúe funcionando exactamente igual.
-    # --------------------------------------------------------
-
+    # Si guardas tuplas con (texto, autor, url_evento) en ALL_QUOTES:
+    item = random.choice(ALL_QUOTES)
+    
+    # Supongamos que el item incluye la URL o la ruta pública
+    # Si guardaste la estructura completa:
+    quote, url_evento = item["quote"], item.get("url", "https://www.timelesstoday.tv/es")
+    
+    STATE["current_quote_url"] = url_evento
+    
     match = re.match(
         r"^“(.*)”\s+—\s+Prem\s+Rawat(?:,\s*(.*))?$", quote, flags=re.DOTALL
     )
 
     if match:
-
         texto = f"“{match.group(1)}”"
-
         autor = "Prem Rawat"
-
         if match.group(2):
-
             autor += ", " + match.group(2)
-
         return (texto, autor)
-
-    # --------------------------------------------------------
-    # Respaldo por si alguna cita no coincide con el formato.
-    # --------------------------------------------------------
 
     return (quote, "Prem Rawat")
 
@@ -1893,12 +1848,16 @@ def index():
             <strong style="color: #ffffff; font-size: 0.95rem;">Metadatos del origen de la cita y de la imagen</strong>
         </div>
         <div style="font-size: 0.85rem; color: #cbd5e1; line-height: 1.5; text-align: left; display: flex; flex-direction: column; gap: 10px; padding: 10px 0;">
+            
+            <!-- AQUÍ SUSTITUYES ESTE BLOQUE DE ABAJO -->
             <div>
                 <strong style="color: #60a5fa; display: block;">Fuente de la cita:</strong>
                 <a id="info-quote-url" href="https://www.timelesstoday.tv" target="_blank" rel="noopener noreferrer" style="color: #93c5fd; word-break: break-all;">
                     Timeless Today
                 </a>
             </div>
+            <!-- HASTA AQUÍ -->
+
             <div>
                 <strong style="color: #60a5fa; display: block;">Origen de la imagen:</strong>
                 <a id="info-image-url" href="https://wallhaven.cc" target="_blank" rel="noopener noreferrer" style="color: #93c5fd; word-break: break-all;">
@@ -2568,16 +2527,24 @@ def index():
                 const response = await fetch('/api/current-metadata');
                 if (!response.ok) return;
                 const data = await response.json();
-
+        
                 const quoteLink = document.getElementById('info-quote-url');
                 const imageLink = document.getElementById('info-image-url');
-
+        
                 if (quoteLink) {
                     quoteLink.href = data.quote_url;
-                    quoteLink.textContent = data.quote_url.includes('/media/') 
-                        ? 'Ver cita en Timeless Today ↗' 
-                        : 'Timeless Today';
+                    // Muestra la URL escrita completa para capturas de pantalla
+                    quoteLink.textContent = data.quote_url;
                 }
+        
+                if (imageLink) {
+                    imageLink.href = data.image_url;
+                    imageLink.textContent = data.image_url;
+                }
+            } catch (e) {
+                console.error("Error al actualizar metadatos:", e);
+            }
+        }
 
                 if (imageLink) {
                     imageLink.href = data.image_url;
