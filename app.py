@@ -457,15 +457,15 @@ def load_all_quotes():
             else:
                 quote_text = f"“{texto}” — Prem Rawat"
 
-            # 4. Construir URL de la fuente
-            url_evento = item.get("url")
+            # 4. Construir URL real del evento a partir del UUID
+            uuid = item.get("tt_media_uuid")
             
-            if not url_evento:
-                uuid = item.get("tt_media_uuid")
+            if uuid and len(str(uuid)) == 36:
+                url_evento = f"https://timelesstoday.tv/es/events/product/{uuid}"
+            else:
+                url_evento = item.get("url")
             
-                if uuid and len(str(uuid)) == 36:
-                    url_evento = f"https://timelesstoday.tv/es/events/product/{uuid}"
-                else:
+                if not url_evento:
                     url_evento = "https://timelesstoday.tv/es"
 
             citas_procesadas.append({
