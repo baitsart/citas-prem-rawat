@@ -2513,7 +2513,7 @@ def index():
 
                 if (quoteLink) {
                     quoteLink.href = data.quote_url;
-                    quoteLink.textContent = data.quote_url.includes('/media/') 
+                    quoteLink.textContent = data.quote_url.includes('/events/product/') 
                         ? 'Ver cita en Timeless Today ↗' 
                         : 'Timeless Today';
                 }
