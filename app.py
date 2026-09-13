@@ -484,33 +484,27 @@ def load_all_quotes():
         eventos = datos.get("data", [])
 
         for evento in eventos:
-            cita_texto = procesar_evento(evento)
-            if cita_texto:
-                # Extraemos la URL con la nueva función y guardamos el diccionario completo
-                url_cita = extraer_url_evento(evento)
-                citas.append({
-                    "quote": cita_texto,
-                    "url": url_cita
-                })
+            # procesar_evento(evento) ya retorna un dict {"quote": ..., "url": ...}
+            item_cita = procesar_evento(evento)
+            if item_cita:
+                citas.append(item_cita)
 
-    # --------------------------------------------------------
-    # Eliminar duplicados conservando orden de forma segura
-    # --------------------------------------------------------
+    # Eliminar duplicados conservando orden
     citas_unicas = []
     vistas = set()
 
     for c in citas:
-        # Extraemos el texto de la cita garantizando que sea una cadena
-        if isinstance(c, dict):
-            valor_raw = c.get('quote', '')
-            # Si 'quote' era otro dict por error, tomamos la representación en texto
-            clave_texto = str(valor_raw)
-        else:
-            clave_texto = str(c)
-
-        if clave_texto not in vistas:
+        clave_texto = str(c.get("quote", "")) if isinstance(c, dict) else str(c)
+        if clave_texto and clave_texto not in vistas:
             vistas.add(clave_texto)
             citas_unicas.append(c)
+
+    # ASIGNACIÓN CLAVE: Se actualiza la variable global con las citas procesadas
+    if citas_unicas:
+        ALL_QUOTES = citas_unicas
+        print(f"INFO: Se cargaron exitosamente {len(ALL_QUOTES)} citas de TimelessToday.")
+    else:
+        ALL_QUOTES = list(CITAS_MEMORIA)
 
 
 # ============================================================
