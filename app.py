@@ -383,69 +383,24 @@ def hacer_peticion(offset):
 # ============================================================
 
 def extraer_url_evento(item):
-    # 1. Si el JSON ya trae una URL directa manual válida
-    if item.get("url") and str(item.get("url")).startswith("http"):
-        return item.get("url")
+    # 1. UUID real de TimelessToday
+    uuid = item.get("tt_media_uuid")
 
-    # 2. Si existe un UUID de 36 caracteres (ej. de la API original)
-    uuid = item.get("uuid") or item.get("guid")
-    if uuid and len(str(uuid)) > 30:
-        return f"https://timelesstoday.tv/es/product/{uuid}"
+    if uuid and len(str(uuid)) == 36:
+        return f"https://timelesstoday.tv/es/events/product/{uuid}"
 
-    # 3. Si tenemos el título del evento, generamos la búsqueda pública exacta
+    # 2. Si existe una URL explícita
+    url = item.get("url")
+    if url and str(url).startswith("http"):
+        return url
+
+    # 3. Respaldo: búsqueda por título
     titulo = item.get("titulo")
     if titulo:
         return f"https://timelesstoday.tv/es/search?q={urllib.parse.quote(titulo.strip())}"
 
-    # 4. Respaldo general
+    # 4. Página principal
     return "https://timelesstoday.tv/es"
-
-def procesar_evento(evento):
-    raw_cita = evento.get("tt_one_line_quote")
-    if not raw_cita:
-        return None
-
-    # Obtener el UUID/GUID o ID del producto para generar la URL funcional
-    url_evento = extraer_url_evento(evento)
-
-    # Limpieza de texto
-    texto = unescape(str(raw_cita))
-    texto = re.sub(r"<[^>]+>", "", texto)
-    texto = re.sub(r"\s+", " ", texto).strip()
-
-    match_firma = re.search(
-        r"[\s–\-—]*Prem\s+Rawat(?:[.,]\s*(.+))?[.]?$", texto, flags=re.IGNORECASE
-    )
-    lugar_fecha = None
-    if match_firma:
-        texto = texto[: match_firma.start()].strip()
-        if match_firma.group(1):
-            lugar_fecha = match_firma.group(1).strip()
-
-    if not lugar_fecha:
-        nombre_evento = evento.get("tt_name")
-        if nombre_evento and nombre_evento.strip():
-            lugar_fecha = nombre_evento.strip()
-
-    texto = re.sub(r'^["“”’\']+|["“”’\']+$', "", texto).strip()
-    texto = re.sub(r'["”’\']+\s*\.?$', "", texto).strip()
-
-    if texto and not texto.endswith((".", "!", "?", "…")):
-        texto += "."
-
-    if not texto:
-        return None
-
-    if lugar_fecha:
-        lugar_fecha = re.sub(r'^["“”’\']+|["“”’\']+$', "", lugar_fecha).strip().rstrip(".")
-        quote_text = f"“{texto}” — Prem Rawat, ({lugar_fecha})"
-    else:
-        quote_text = f"“{texto}” — Prem Rawat"
-
-    return {
-        "quote": quote_text,
-        "url": url_evento
-    }
 
 
 # ============================================================
