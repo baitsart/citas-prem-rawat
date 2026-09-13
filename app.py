@@ -1557,6 +1557,13 @@ def index():
 
         }
 
+        .container {
+            max-width: 1000px;
+            width: 100%;
+            text-align: center;
+            position: relative;
+        }
+        
         .info-selector {
             position: absolute;
             top: 12px;
@@ -1565,8 +1572,15 @@ def index():
         }
         
         .info-panel {
-            right: auto;
+            top: calc(100% + 8px);
             left: 0;
+            right: auto;
+            width: 360px;
+            max-width: calc(100vw - 24px);
+            max-height: 60vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+            white-space: normal;
         }
 
         .font-selector-button {
