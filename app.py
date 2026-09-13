@@ -476,14 +476,14 @@ def load_all_quotes():
 
             texto = str(raw_cita).strip()
 
-            # Limpiar posibles firmas al final del texto para no duplicar "Prem Rawat"
+            # 1. Eliminar firmas previas que vengan dentro del texto de la cita
             match_firma = re.search(
                 r"[\s–\-—]*Prem\s+Rawat(?:[.,]\s*(.+))?[.]?$", texto, flags=re.IGNORECASE
             )
             if match_firma:
                 texto = texto[: match_firma.start()].strip()
 
-            # Limpiar comillas iniciales o finales
+            # 2. Limpiar comillas sobrantes
             texto = re.sub(r'^["“”’\']+|["“”’\']+$', "", texto).strip()
             texto = re.sub(r'["”’\']+\s*\.?$', "", texto).strip()
 
@@ -491,20 +491,20 @@ def load_all_quotes():
                 texto += "."
 
             titulo = item.get("titulo", "").strip()
-            
-            # Formateamos el texto de la cita con autor y origen/evento
+
+            # 3. Formatear la cita y el autor por separado sin duplicar
+            # Guardamos la estructura estándar: “Texto” — Prem Rawat, (Título del evento)
             if titulo:
-                quote_text = f"“{texto}” — Prem Rawat ({titulo})"
+                quote_text = f"“{texto}” — Prem Rawat, ({titulo})"
             else:
                 quote_text = f"“{texto}” — Prem Rawat"
 
-            # Construir URL directa de la fuente
+            # 4. Construir URL de la fuente
             url_evento = item.get("url")
             if not url_evento:
-                if item.get("uuid"):
-                    url_evento = f"https://timelesstoday.tv/es/product/{item.get('uuid')}"
-                elif titulo:
-                    url_evento = f"https://timelesstoday.tv/es/search?q={urllib.parse.quote(titulo)}"
+                identifier = item.get("uuid") or item.get("slug") or item.get("id")
+                if identifier:
+                    url_evento = f"https://timelesstoday.tv/es/product/{identifier}"
                 else:
                     url_evento = "https://timelesstoday.tv/es"
 
