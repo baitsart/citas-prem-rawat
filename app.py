@@ -1581,6 +1581,7 @@ def index():
             overflow-y: auto;
             overflow-x: hidden;
             white-space: normal;
+            box-sizing: border-box;
         }
 
         .font-selector-button {
