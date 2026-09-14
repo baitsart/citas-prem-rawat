@@ -140,16 +140,6 @@
     "url": "https://timelesstoday.tv/es/events/product/128fb1b7-d058-400e-9da4-2ff8d70f223d"
   },
   {
-    "id": 4838,
-    "titulo": "FELIZ AÑO NUEVO de Prem Rawat",
-    "fecha": "2026-01-01",
-    "cita": "2026",
-    "slug": "4838-2026-a-new-years-message-from-prem-rawat",
-    "imagen": "https://images.timelesstoday.tv/img26/2026-New-Year_ES.jpg?format=auto",
-    "tt_media_uuid": "4f7ad703-9a30-4f2e-baaf-9a183e55e985",
-    "url": "https://timelesstoday.tv/es/events/product/4f7ad703-9a30-4f2e-baaf-9a183e55e985"
-  },
-  {
     "id": 4831,
     "titulo": "Experiencia: Más allá de las palabras",
     "fecha": "2025-11-26",
@@ -1680,16 +1670,6 @@
     "url": "https://timelesstoday.tv/es/events/product/a7248be0-4b64-4ce1-a294-b7934d395385"
   },
   {
-    "id": 3279,
-    "titulo": "Tu ahora",
-    "fecha": "2020-01-25",
-    "cita": "Disfruta esta Repetición a pedido de nuestro Express Stream transmitido el día después del evento del autor, narrador y orador de fama internacional Prem Rawat, desde el Teatro Orpheum de Los Ángeles.",
-    "slug": "3279-your-now",
-    "imagen": "https://images.timelesstoday.tv/img/0004775_tu-ahora-video.jpeg?format=auto",
-    "tt_media_uuid": "358ac16e-4f8c-427f-a8e9-7d910ae69e02",
-    "url": "https://timelesstoday.tv/es/events/product/358ac16e-4f8c-427f-a8e9-7d910ae69e02"
-  },
-  {
     "id": 3283,
     "titulo": "Acerca de ti",
     "fecha": "2020-01-18",
@@ -1750,16 +1730,6 @@
     "url": "https://timelesstoday.tv/es/events/product/7b0a4f7a-7550-4a67-b9da-63db692fb709"
   },
   {
-    "id": 3448,
-    "titulo": "Prem Rawat en Milán",
-    "fecha": "2019-06-16",
-    "cita": "Repetición del LiveStream en inglés, e español.",
-    "slug": "3448-prem-rawat-in-milan-replay",
-    "imagen": "https://images.timelesstoday.tv/img/0003847_prem-rawat-en-milan-video-en-espanol.jpeg?format=auto",
-    "tt_media_uuid": "78c39500-f8c6-43ee-a752-8a19f5f9455f",
-    "url": "https://timelesstoday.tv/es/events/product/78c39500-f8c6-43ee-a752-8a19f5f9455f"
-  },
-  {
     "id": 3383,
     "titulo": "Proyecto: Gratitud",
     "fecha": "2019-05-26",
@@ -1813,7 +1783,7 @@
     "id": 3640,
     "titulo": "Navegando por la vida (Español)",
     "fecha": "2018-05-12",
-    "cita": "The power of a human being lies in his understanding. Only then can he have the conviction to rise from the dust to the sky.",
+    "cita": "El poder del ser humano reside en su entendimiento. Sólo entonces podrá tener la convicción de elevarse del polvo al cielo.",
     "slug": "3640-navigating-life-with-prem-rawat",
     "imagen": "https://images.timelesstoday.tv/img/0001508_navegando-por-la-vida-espanol.jpeg?format=auto",
     "tt_media_uuid": "670dcec5-8f16-40f2-8078-8a31c7030c70",
@@ -1823,7 +1793,7 @@
     "id": 4271,
     "titulo": "Historias para la vida",
     "fecha": "2018-04-28",
-    "cita": "Separate 'fail' from 'failure' and you'll be on top of your game.",
+    "cita": "Distingue entre «fallar» y «fracasar», y estarás en la cima de tu juego.",
     "slug": "4271-stories-for-life",
     "imagen": "https://images.timelesstoday.tv/img/0001487_historias-para-la-vida-espanol-video.jpeg?format=auto",
     "tt_media_uuid": "7100af54-29af-4b69-983d-10481537e85f",
@@ -1838,16 +1808,6 @@
     "imagen": "https://images.timelesstoday.tv/img/0002978_el-negocio-de-la-vida-video.jpeg?format=auto",
     "tt_media_uuid": "f1b8172d-18b8-47a5-85ae-1ff006f67aeb",
     "url": "https://timelesstoday.tv/es/events/product/f1b8172d-18b8-47a5-85ae-1ff006f67aeb"
-  },
-  {
-    "id": 3648,
-    "titulo": "Cuando el Desierto Florece",
-    "fecha": "2018-03-11",
-    "cita": "Una tarde con Prem Rawat. Transmisión en directo Livestream desde la Caja Mágica, Madrid, España. Domingo, 11 de marzo, 2018.",
-    "slug": "3648-when-the-desert-blooms",
-    "imagen": "https://images.timelesstoday.tv/img/0001283_cuando-el-desierto-florece.jpeg?format=auto",
-    "tt_media_uuid": "ad079262-9f26-49c7-ad4a-9591b4459cf9",
-    "url": "https://timelesstoday.tv/es/events/product/ad079262-9f26-49c7-ad4a-9591b4459cf9"
   },
   {
     "id": 3649,
