@@ -647,6 +647,11 @@ def fit_wallpaper(image, target_width, target_height):
 # ============================================================
 
 
+def fetch_picsum_wallpaper(width, height):
+    seed = random.randint(1, 100000)
+    img_url = f"https://picsum.photos/seed/{seed}/{width}/{height}"
+    return get_image_bytes(img_url), img_url
+
 def fetch_random_background():
     target_width, target_height = get_random_dimensions()
 
@@ -655,26 +660,31 @@ def fetch_random_background():
         img_data, img_url = get_wallhaven_wallpaper()
         img = Image.open(io.BytesIO(img_data)).convert("RGB")
         img = fit_wallpaper(img, target_width, target_height)
-
         STATE["current_image_url"] = img_url
         return img, target_width, target_height
+    except Exception as e:
+        print(f"Wallhaven no disponible ({e}), pasando a Picsum...")
 
-    except Exception:
-        pass
+    # 2. Respaldo dinámico con Picsum (Garantiza imagen nueva en cada clic)
+    try:
+        img_data, img_url = fetch_picsum_wallpaper(target_width, target_height)
+        img = Image.open(io.BytesIO(img_data)).convert("RGB")
+        STATE["current_image_url"] = img_url
+        return img, target_width, target_height
+    except Exception as e:
+        print(f"Picsum no disponible: {e}")
 
-    # 2. Respaldo con Bing Images
+    # 3. Respaldo Bing
     try:
         img_data, img_url = get_bing_wallpaper()
         img = Image.open(io.BytesIO(img_data)).convert("RGB")
         img = fit_wallpaper(img, target_width, target_height)
-
         STATE["current_image_url"] = img_url
         return img, target_width, target_height
-
     except Exception:
         pass
 
-    # 3. Respaldo en caso de fallo total
+    # 4. Fondo de emergencia
     img = Image.new("RGB", (target_width, target_height), color=(40, 50, 60))
     STATE["current_image_url"] = "https://www.bing.com"
     return img, target_width, target_height
