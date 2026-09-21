@@ -743,13 +743,15 @@ def fetch_random_background():
             if fuente == "wallhaven":
                 img_data, img_url = get_wallhaven_wallpaper()
             elif fuente == "pixabay":
-                resultados = obtener_imagenes_pixabay(tag, cantidad=1)
+                # Pedimos un lote de 10 y elegimos una al azar
+                resultados = obtener_imagenes_pixabay(tag, cantidad=10)
                 if not resultados: continue
-                img_data, img_url = resultados[0]
+                img_data, img_url = random.choice(resultados)
             elif fuente == "pexels":
-                resultados = obtener_imagenes_pexels(tag, cantidad=1)
+                # Pedimos un lote de 10 y elegimos una al azar
+                resultados = obtener_imagenes_pexels(tag, cantidad=10)
                 if not resultados: continue
-                img_data, img_url = resultados[0]
+                img_data, img_url = random.choice(resultados)
             elif fuente == "picsum":
                 img_data, img_url = fetch_picsum_wallpaper(target_width, target_height)
             elif fuente == "bing":
