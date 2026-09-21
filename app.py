@@ -129,9 +129,25 @@ def font_file(path: str):
 
 BASE_SIZE = 1920
 
+
 WALLHAVEN_API_KEY = os.environ.get(
     "WALLHAVEN_API_KEY", "jJm5diseSPiDVIqvvE7aUS4fWwgJ0koW"
 )
+
+PIXABAY_API_KEY = os.environ.get(
+    "PIXABAY_API_KEY", "57658781-0a7941b8305114c3f2db8a611"
+)
+
+PEXELS_API_KEY = os.environ.get(
+    "PEXELS_API_KEY", "b1NfvD9UGKtR2kymNDr2jHp02R2IbeXpQzLILZnni2T0O4o5utkDBf2w"
+)
+
+HTTP_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "es-ES,es;q=0.9,en;q=0.8"
+}
+
 
 WALLHAVEN_TAGS = [
     "nature",
@@ -603,6 +619,72 @@ def get_bing_wallpaper():
 
 
 # ============================================================
+# PEXELS & PIXABAY
+# ============================================================
+
+def obtener_imagenes_pixabay(query_tag, cantidad=10):
+    items = []
+    try:
+        params = {
+            "key": PIXABAY_API_KEY,
+            "q": urllib.parse.quote(query_tag),
+            "image_type": "photo",
+            "safesearch": "true",
+            "per_page": 30
+        }
+        query_str = urllib.parse.urlencode(params)
+        api_url = f"https://pixabay.com/api/?{query_str}"
+        req = urllib.request.Request(api_url, headers=HTTP_HEADERS)
+        
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            if resp.status == 200:
+                data = json.loads(resp.read().decode("utf-8"))
+                hits = data.get("hits", [])
+                # Filtrar opcionalmente para que no sean verticales muy estrechas (ancho >= alto)
+                hits = [h for h in hits if h.get("imageWidth", 0) >= h.get("imageHeight", 0)]
+                random.shuffle(hits)
+                
+                for hit in hits[:cantidad]:
+                    full_url = hit.get("largeImageURL") or hit.get("webformatURL")
+                    page_url = hit.get("pageURL", full_url)
+                    if full_url:
+                        items.append((get_image_bytes(full_url), page_url))
+    except Exception as e:
+        print(f"Error consultando Pixabay para '{query_tag}': {e}")
+    return items
+
+def obtener_imagenes_pexels(query_tag, cantidad=10):
+    items = []
+    try:
+        params = {"query": query_tag, "per_page": 30}
+        query_str = urllib.parse.urlencode(params)
+        api_url = f"https://api.pexels.com/v1/search?{query_str}"
+        
+        headers_pexels = {
+            **HTTP_HEADERS,
+            "Authorization": PEXELS_API_KEY
+        }
+        req = urllib.request.Request(api_url, headers=headers_pexels)
+        
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            if resp.status == 200:
+                data = json.loads(resp.read().decode("utf-8"))
+                photos = data.get("photos", [])
+                photos = [p for p in photos if p.get("width", 0) >= p.get("height", 0)]
+                random.shuffle(photos)
+                
+                for photo in photos[:cantidad]:
+                    src = photo.get("src", {})
+                    full_url = src.get("large2x") or src.get("original") or src.get("large")
+                    page_url = photo.get("url", full_url)
+                    if full_url:
+                        items.append((get_image_bytes(full_url), page_url))
+    except Exception as e:
+        print(f"Error consultando Pexels para '{query_tag}': {e}")
+    return items
+
+
+# ============================================================
 # RECORTE PROPORCIONAL
 #
 # NO deforma la imagen.
@@ -646,7 +728,6 @@ def fit_wallpaper(image, target_width, target_height):
 # OBTENER WALLPAPER ALEATORIO
 # ============================================================
 
-
 def fetch_picsum_wallpaper(width, height):
     seed = random.randint(1, 100000)
     img_url = f"https://picsum.photos/seed/{seed}/{width}/{height}"
@@ -654,37 +735,40 @@ def fetch_picsum_wallpaper(width, height):
 
 def fetch_random_background():
     target_width, target_height = get_random_dimensions()
+    tag = random.choice(WALLHAVEN_TAGS)
+    
+    # Lista de opciones de fuentes disponibles para elegir una al azar
+    fuentes_disponibles = ["wallhaven", "pixabay", "pexels", "picsum", "bing"]
+    random.shuffle(fuentes_disponibles)
+    
+    for fuente in fuentes_disponibles:
+        try:
+            if fuente == "wallhaven":
+                img_data, img_url = get_wallhaven_wallpaper()
+            elif fuente == "pixabay":
+                resultados = obtener_imagenes_pixabay(tag, cantidad=1)
+                if not resultados: continue
+                img_data, img_url = resultados[0]
+            elif fuente == "pexels":
+                resultados = obtener_imagenes_pexels(tag, cantidad=1)
+                if not resultados: continue
+                img_data, img_url = resultados[0]
+            elif fuente == "picsum":
+                img_data, img_url = fetch_picsum_wallpaper(target_width, target_height)
+            elif fuente == "bing":
+                img_data, img_url = get_bing_wallpaper()
+            else:
+                continue
+                
+            img = Image.open(io.BytesIO(img_data)).convert("RGB")
+            img = fit_wallpaper(img, target_width, target_height)
+            STATE["current_image_url"] = img_url
+            return img, target_width, target_height
+        except Exception as e:
+            print(f"Fuente {fuente} falló: {e}")
+            continue
 
-    # 1. Intentar con Wallhaven
-    try:
-        img_data, img_url = get_wallhaven_wallpaper()
-        img = Image.open(io.BytesIO(img_data)).convert("RGB")
-        img = fit_wallpaper(img, target_width, target_height)
-        STATE["current_image_url"] = img_url
-        return img, target_width, target_height
-    except Exception as e:
-        print(f"Wallhaven no disponible ({e}), pasando a Picsum...")
-
-    # 2. Respaldo dinámico con Picsum (Garantiza imagen nueva en cada clic)
-    try:
-        img_data, img_url = fetch_picsum_wallpaper(target_width, target_height)
-        img = Image.open(io.BytesIO(img_data)).convert("RGB")
-        STATE["current_image_url"] = img_url
-        return img, target_width, target_height
-    except Exception as e:
-        print(f"Picsum no disponible: {e}")
-
-    # 3. Respaldo Bing
-    try:
-        img_data, img_url = get_bing_wallpaper()
-        img = Image.open(io.BytesIO(img_data)).convert("RGB")
-        img = fit_wallpaper(img, target_width, target_height)
-        STATE["current_image_url"] = img_url
-        return img, target_width, target_height
-    except Exception:
-        pass
-
-    # 4. Fondo de emergencia
+    # Fondo de emergencia final si todo falla
     img = Image.new("RGB", (target_width, target_height), color=(40, 50, 60))
     STATE["current_image_url"] = "https://www.bing.com"
     return img, target_width, target_height
@@ -2510,10 +2594,14 @@ def index():
                     imageLink.href = data.image_url;
                     if (data.image_url.includes('wallhaven.cc')) {
                         imageLink.textContent = 'Ver en Wallhaven ↗';
+                    } else if (data.image_url.includes('pixabay.com')) {
+                        imageLink.textContent = 'Ver en Pixabay ↗';
+                    } else if (data.image_url.includes('pexels.com')) {
+                        imageLink.textContent = 'Ver en Pexels ↗';
                     } else if (data.image_url.includes('bing.com')) {
                         imageLink.textContent = 'Ver en Bing Images ↗';
                     } else {
-                        imageLink.textContent = 'Wallhaven / Bing Images';
+                        imageLink.textContent = 'Ver fuente de imagen';
                     }
                 }
             } catch (e) {
