@@ -640,8 +640,6 @@ def obtener_imagenes_pixabay(query_tag, cantidad=10):
             if resp.status == 200:
                 data = json.loads(resp.read().decode("utf-8"))
                 hits = data.get("hits", [])
-                # Filtrar opcionalmente para que no sean verticales muy estrechas (ancho >= alto)
-                hits = [h for h in hits if h.get("imageWidth", 0) >= h.get("imageHeight", 0)]
                 random.shuffle(hits)
                 
                 for hit in hits[:cantidad]:
@@ -670,7 +668,6 @@ def obtener_imagenes_pexels(query_tag, cantidad=10):
             if resp.status == 200:
                 data = json.loads(resp.read().decode("utf-8"))
                 photos = data.get("photos", [])
-                photos = [p for p in photos if p.get("width", 0) >= p.get("height", 0)]
                 random.shuffle(photos)
                 
                 for photo in photos[:cantidad]:
